@@ -1,0 +1,6 @@
+#signInButton {
+    visibility: hidden;
+}
+#errorText {
+    color: red;
+}

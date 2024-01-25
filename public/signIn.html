@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>Passkeys Demo: Sign In</title>
+        <link href="/style.css" rel="stylesheet" />
+    </head>
+    <body>
+        <form id="signInForm" action="/signIn" method="post">
+            <!-- <input type="text" name="username" autocomplete="username webauthn" hidden /> -->
+            <input id="passkeyInput" name="passkey" hidden />
+            <button type="button" id="signInButton">Sign In</button>
+            <p id="errorText"></p>
+        </form>
+        <script src="/browser.js"></script>
+        <script>
+            async function onSignIn() {
+                const challenge = await getChallenge();
+
+                const abortController = new AbortController();
+
+                const passkeyRequestOptions = {
+                    challenge,
+                    rpId: RP_HOST
+                };
+
+                console.log('Requesting credential...');
+
+                const credential = await navigator.credentials.get({
+                    publicKey: passkeyRequestOptions,
+                    signal: abortController.signal,
+                    //mediation: 'conditional'
+                });
+
+                console.log('Got credential:', credential);
+
+                const clientDataJSON = new TextDecoder('utf-8').decode(credential.response.clientDataJSON);
+
+                const passkeyData = {
+                    id: credential.id,
+                    clientDataJSON,
+                    signature: toBase64(credential.response.signature),
+                    userHandle: toBase64(credential.response.userHandle),
+                    authenticatorData: toBase64(credential.response.authenticatorData),
+                };
+
+                console.log('Passkey data is', passkeyData);
+
+                document.getElementById('passkeyInput').value = JSON.stringify(passkeyData);
+
+                document.getElementById('signInForm').submit();
+            }
+
+            arePasskeysSupported().then(async result => {
+                if (!result) {
+                    handlePasskeysNotSupported();
+                    return;
+                }
+
+                console.log('Your browser appears to support passkeys, enabling sign in.');
+
+                const button = document.getElementById('signInButton');
+
+                button.addEventListener('click', onSignIn);
+                button.style.visibility = 'visible';
+            });
+        </script>
+    </body>
+</html>
