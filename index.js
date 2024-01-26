@@ -1,8 +1,8 @@
-const assert = require('node:assert/strict');
-const crypto = require('crypto');
-const fs = require('fs');
-const http = require('http');
-const cbor = require('cbor');
+import assert from 'assert/strict';
+import crypto from 'crypto';
+import fs from 'fs';
+import http from 'http';
+import cbor from 'cbor';
 
 const PORT = 8080;
 

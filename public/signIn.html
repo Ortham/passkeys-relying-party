@@ -12,8 +12,9 @@
             <button type="button" id="signInButton">Sign In</button>
             <p id="errorText"></p>
         </form>
-        <script src="/browser.js"></script>
-        <script>
+        <script type="module">
+            import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, RP_HOST } from './browser.js';
+
             async function onSignIn() {
                 const challenge = await getChallenge();
 
@@ -30,6 +31,7 @@
                 const credential = await navigator.credentials.get({
                     publicKey: passkeyRequestOptions,
                     signal: abortController.signal,
+                    // Conditional mediation / autofill UI doesn't work on Windows 10 with Windows Hello.
                     //mediation: 'conditional'
                 });
 

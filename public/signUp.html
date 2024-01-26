@@ -16,11 +16,17 @@
             <p id="errorText"></p>
         </form>
     </body>
-    <script src="/browser.js"></script>
-    <script>
+    <script type="module">
+        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, RP_HOST } from './browser.js';
+
+        const RP_NAME = 'Passkeys Demo';
+
+        const WEBAUTHN_ALG_ES256 = -7;
+        const WEBAUTHN_ALG_RS256 = -257;
+
         async function getNewUserId() {
             const response = await fetch('/newUserId');
-            body = await response.json();
+            const body = await response.json();
             return body.id;
         }
 
