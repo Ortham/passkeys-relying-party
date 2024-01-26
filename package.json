@@ -11,6 +11,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "cbor": "^9.0.1"
+    "cbor-x": "^1.5.8"
   }
 }

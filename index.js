@@ -1,8 +1,8 @@
 import assert from 'assert/strict';
 import crypto from 'crypto';
-import fs from 'fs';
+import fs from 'fs/promises';
 import http from 'http';
-import cbor from 'cbor';
+import { decode, decodeMultiple } from 'cbor-x';
 
 const PORT = 8080;
 
@@ -58,9 +58,11 @@ class Database {
 
 const database = new Database();
 
-function serveFile(res, filePath, contentType) {
+async function serveFile(res, filePath, contentType) {
+    const file = await fs.readFile('./public/' + filePath);
+
     res.writeHead(200, { 'Content-Type': contentType });
-    res.end(fs.readFileSync('./public/' + filePath));
+    res.end(file);
 }
 
 function getCookies(req) {
@@ -176,7 +178,7 @@ function parseAuthData(authData, requireCredentialData) {
         credentialId = authData.subarray(55, 55 + credentialIdLength);
 
         // Next field is the credential public key, but it may be followed by an extensions map.
-        const remaining = cbor.decodeAllSync(authData.subarray(55 + credentialIdLength));
+        const remaining = decodeMultiple(authData.subarray(55 + credentialIdLength));
 
         console.log('Flags are', flags, 'remaining is', remaining);
 
@@ -191,7 +193,7 @@ function parseAuthData(authData, requireCredentialData) {
             credentialPublicKey = remaining[0];
         }
     } else if (hasExtensionData) {
-        const remaining = cbor.decodeAllSync(authData.subarray(37));
+        const remaining = decodeMultiple(authData.subarray(37));
 
         assert.strictEqual(remaining.length, 1);
 
@@ -205,7 +207,7 @@ function parseAuthData(authData, requireCredentialData) {
 
 function decodeAttestationObject(attestationObject) {
     // https://w3c.github.io/webauthn/#attestation-object
-    const { fmt, attStmt, authData } = cbor.decodeFirstSync(attestationObject);
+    const { fmt, attStmt, authData } = decode(attestationObject);
 
     assert.strictEqual(fmt, 'none');
     assert.strictEqual(Object.keys(attStmt).length, 0);
@@ -243,11 +245,11 @@ function ecCodeToJwk(credential) {
     // https://datatracker.ietf.org/doc/html/rfc7518
     const WEBAUTHN_ALG_ES256 = -7;
 
-    const alg = credential.get(3);
+    const alg = credential['3'];
     assert.strictEqual(alg, WEBAUTHN_ALG_ES256);
 
     const COSE_EC_P256 = 1;
-    const crv = credential.get(-1);
+    const crv = credential['-1'];
     assert.strictEqual(crv, COSE_EC_P256);
 
     return {
@@ -256,8 +258,8 @@ function ecCodeToJwk(credential) {
         key_ops: ['verify'],
         alg: 'ES256',
         crv: 'P-256',
-        x: credential.get(-2).toString('base64url'),
-        y: credential.get(-3).toString('base64url')
+        x: credential['-2'].toString('base64url'),
+        y: credential['-3'].toString('base64url')
     };
 }
 
@@ -266,7 +268,7 @@ function rsaCoseToJwk(credential) {
     // https://datatracker.ietf.org/doc/html/rfc7518
     const WEBAUTHN_ALG_RS256 = -257;
 
-    const alg = credential.get(3);
+    const alg = credential['3'];
     assert.strictEqual(alg, WEBAUTHN_ALG_RS256);
 
     return {
@@ -274,8 +276,8 @@ function rsaCoseToJwk(credential) {
         use: 'sig',
         key_ops: ['verify'],
         alg: 'RS256',
-        n: credential.get(-1).toString('base64url'),
-        e: credential.get(-2).toString('base64url')
+        n: credential['-1'].toString('base64url'),
+        e: credential['-2'].toString('base64url')
     };
 }
 
@@ -284,7 +286,7 @@ function coseToJwk(credential) {
     const COSE_KEY_TYPE_EC2 = 2;
     const COSE_KEY_TYPE_RSA = 3;
 
-    const kty = credential.get(1);
+    const kty = credential['1'];
 
     if (kty === COSE_KEY_TYPE_EC2) {
         return ecCodeToJwk(credential);
@@ -433,15 +435,15 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     if (req.method === 'GET') {
         if (url.pathname === '/') {
-            serveFile(res, 'index.html', HTML);
+            await serveFile(res, 'index.html', HTML);
         } else if (url.pathname === '/signUp') {
-            serveFile(res, 'signUp.html', HTML);
+            await serveFile(res, 'signUp.html', HTML);
         } else if (url.pathname === '/signIn') {
-            serveFile(res, 'signIn.html', HTML);
+            await serveFile(res, 'signIn.html', HTML);
         } else if (url.pathname === '/style.css') {
-            serveFile(res, 'style.css', CSS);
+            await serveFile(res, 'style.css', CSS);
         } else if (url.pathname === '/browser.js') {
-            serveFile(res, 'browser.js', JAVASCRIPT);
+            await serveFile(res, 'browser.js', JAVASCRIPT);
         } else if (url.pathname === '/challenge') {
             serveChallenge(res, sessionId);
         } else if (url.pathname === '/newUserId') {
