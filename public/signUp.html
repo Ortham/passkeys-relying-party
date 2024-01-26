@@ -44,7 +44,8 @@
                 ],
                 excludeCredentials: [],
                 authenticatorSelection: {
-                    requireResidentKey: true
+                    requireResidentKey: true,
+                    userVerification: 'required'
                 }
             };
 
@@ -62,7 +63,8 @@
                 userId: newUserId,
                 clientData,
                 // Firefox returns nonsense for getPublicKey(), so we can't avoid parsing the attestationObject server-side...
-                attestationObject: toBase64(credential.response.attestationObject)
+                attestationObject: toBase64(credential.response.attestationObject),
+                transports: credential.response.getTransports()
             };
             console.log('Passkey data is', passkeyData);
 

@@ -6,6 +6,13 @@ const cbor = require('cbor');
 
 const PORT = 8080;
 
+const FLAG_USER_PRESENT = 0b0001;
+const FLAG_USER_VERIFIED = 0b0100;
+const FLAG_BACKUP_ELIGIBILITY = 0b1000;
+const FLAG_BACKUP_STATE = 0b0001_0000;
+const FLAG_ATTESTED_CREDENTIAL_DATA_INCLUDED = 0b0100_0000;
+const FLAG_EXTENSION_DATA_INCLUDED = 0b1000_0000;
+
 class Database {
     constructor() {
         this.users = new Map();
@@ -26,6 +33,26 @@ class Database {
 
     getChallenge(sessionId) {
         return this.challenges.get(sessionId);
+    }
+
+    countUsersByCredentialId(credentialId) {
+        const passkeyId = credentialId.toString('base64url');
+        let count = 0;
+
+        for (const [_id, user] of this.users) {
+            if (user.passkey.id === passkeyId) {
+                count += 1;
+            }
+        }
+
+        return count;
+    }
+
+    updatePasskeyState(userId, signCount, backupState) {
+        const user = this.users.get(userId.toString('base64'));
+
+        user.passkey.signCount = signCount;
+        user.passkey.backupState = backupState;
     }
 };
 
@@ -87,6 +114,7 @@ function serveChallenge(res, sessionId) {
 }
 
 function serveNewUserId(res) {
+    // TODO: Come up with a better way of handling user ID generation.
     // Would be better to insert this into the DB now in case of collisions.
     const userId = crypto.randomBytes(16).toString('base64url');
 
@@ -107,17 +135,72 @@ function validateClientData(clientData, sessionId, expectedType) {
     assert.strictEqual(clientData.topOrigin, undefined);
 }
 
-function parseAuthData(authData) {
+function isBitFlagSet(flags, flag) {
+    return (flags & flag) === flag;
+}
+
+function validateFlags(flags) {
+    assert(isBitFlagSet(flags, FLAG_USER_PRESENT), 'User Present bit is not set');
+    assert(isBitFlagSet(flags, FLAG_USER_VERIFIED), 'User Verified bit is not set');
+
+    if (!isBitFlagSet(flags, FLAG_BACKUP_ELIGIBILITY)) {
+        assert(!isBitFlagSet(flags, FLAG_BACKUP_STATE), 'Backup State bit is set but Backup Eligible bit is not set');
+    }
+}
+
+function parseAuthData(authData, requireCredentialData) {
     // https://w3c.github.io/webauthn/#sctn-attested-credential-data
+
     const rpIdHash = authData.subarray(0, 32);
     const flags = authData.readUint8(32);
-    const counter = authData.readUint32BE(33);
-    const aaGuid = authData.subarray(37, 53);
-    const credentialIdLength = authData.readUint16BE(53);
-    const credentialId = authData.subarray(55, 55 + credentialIdLength);
-    const credential = cbor.decodeFirstSync(authData.subarray(55 + credentialIdLength));
+    const signCount = authData.readUint32BE(33);
 
-    return { rpIdHash, flags, counter, aaGuid, credentialIdLength, credentialId, credential };
+    validateFlags(flags);
+
+    const hasCredentialData = isBitFlagSet(flags, FLAG_ATTESTED_CREDENTIAL_DATA_INCLUDED);
+    const hasExtensionData = isBitFlagSet(flags, FLAG_EXTENSION_DATA_INCLUDED);
+
+    if (requireCredentialData) {
+        assert(hasCredentialData, 'No attested credential data included');
+    }
+
+    let aaguid;
+    let credentialIdLength;
+    let credentialId;
+    let credentialPublicKey;
+    let extensions = new Map();
+    if (hasCredentialData) {
+        // Attested credential data fields.
+        aaguid = authData.subarray(37, 53);
+        credentialIdLength = authData.readUint16BE(53);
+        credentialId = authData.subarray(55, 55 + credentialIdLength);
+
+        // Next field is the credential public key, but it may be followed by an extensions map.
+        const remaining = cbor.decodeAllSync(authData.subarray(55 + credentialIdLength));
+
+        console.log('Flags are', flags, 'remaining is', remaining);
+
+        if (hasExtensionData) {
+            assert.strictEqual(remaining.length, 2);
+
+            credentialPublicKey = remaining[0];
+            extensions = remaining[1];
+        } else {
+            assert.strictEqual(remaining.length, 1);
+
+            credentialPublicKey = remaining[0];
+        }
+    } else if (hasExtensionData) {
+        const remaining = cbor.decodeAllSync(authData.subarray(37));
+
+        assert.strictEqual(remaining.length, 1);
+
+        extensions = remaining[0];
+    } else {
+        assert(authData.length, 37);
+    }
+
+    return { rpIdHash, flags, signCount, aaguid, credentialIdLength, credentialId, credentialPublicKey, extensions };
 }
 
 function decodeAttestationObject(attestationObject) {
@@ -127,7 +210,7 @@ function decodeAttestationObject(attestationObject) {
     assert.strictEqual(fmt, 'none');
     assert.strictEqual(Object.keys(attStmt).length, 0);
 
-    return parseAuthData(authData);
+    return parseAuthData(authData, true);
 }
 
 function parseSignUpBody(body) {
@@ -142,9 +225,17 @@ function parseSignUpBody(body) {
         passkey: {
             id: passkey.id,
             clientData: passkey.clientData,
-            attestationObject
+            attestationObject,
+            transports: passkey.transports
         }
     };
+}
+
+async function validateRpIdHash(rpIdHash) {
+    const RP_ID = Buffer.from('localhost', 'utf-8');
+    const expectedRpIdHash = await crypto.subtle.digest('SHA-256', RP_ID);
+
+    assert.strictEqual(rpIdHash.toString('hex'), Buffer.from(expectedRpIdHash).toString('hex'));
 }
 
 function ecCodeToJwk(credential) {
@@ -224,10 +315,17 @@ async function handleSignUpSubmit(req, res, sessionId) {
 
     validateClientData(body.passkey.clientData, sessionId, 'webauthn.create');
 
+    await validateRpIdHash(body.passkey.attestationObject.rpIdHash);
 
-    // TODO: Validate rpIdHash, validate user present flag is set, validate BE and BS flags, validate algorithm is an expected value, a lot more.
+    // Don't care about backup eligibility or backup state beyond validation.
+    // Don't care about client extensions.
 
-    const jwk = coseToJwk(body.passkey.attestationObject.credential);
+    assert(body.passkey.attestationObject.credentialIdLength <= 1023, 'Credential ID is greater than 1023 bytes long');
+
+    const matchingCredentialIdCount = database.countUsersByCredentialId(body.passkey.attestationObject.credentialId);
+    assert.strictEqual(matchingCredentialIdCount, 0);
+
+    const jwk = coseToJwk(body.passkey.attestationObject.credentialPublicKey);
     const algorithm = getAlgorithm(jwk);
 
     const publicKey = await crypto.subtle.importKey('jwk', jwk, algorithm, true, ['verify']);
@@ -239,8 +337,12 @@ async function handleSignUpSubmit(req, res, sessionId) {
         passkey: {
             id: body.passkey.id,
             publicKey,
-            algorithm
-            // TODO: Store other fields necessary for validation. <https://w3c.github.io/webauthn/#credential-record>
+            algorithm,
+            signCount: body.passkey.attestationObject.signCount,
+            uvInitialized: isBitFlagSet(body.passkey.attestationObject.flags, FLAG_USER_VERIFIED),
+            transports: body.passkey.transports,
+            backupEligible: isBitFlagSet(body.passkey.attestationObject.flags, FLAG_BACKUP_ELIGIBILITY),
+            backupState: isBitFlagSet(body.passkey.attestationObject.flags, FLAG_BACKUP_STATE)
         }
     };
 
@@ -279,7 +381,17 @@ async function handleSignInSubmit(req, res, sessionId) {
 
     validateClientData(clientData, sessionId, 'webauthn.get');
 
-    // TODO: Validate rpIdHash, validate user present flag is set, validate BE and BS flags, validate algorithm is an expected value, a lot more.
+    const authData = parseAuthData(body.authenticatorData, false);
+
+    await validateRpIdHash(authData.rpIdHash);
+
+    validateFlags(authData.flags);
+
+    const isBackupEligible = isBitFlagSet(authData.flags, FLAG_BACKUP_ELIGIBILITY);
+    assert.strictEqual(isBackupEligible, user.passkey.backupEligible, "Backup Eligiblity state has changed");
+
+    // Don't care about backup eligibility or state beyond basic validation.
+    // Don't care about client extensions.
 
     const hash = await crypto.subtle.digest('SHA-256', Buffer.from(body.clientDataJSON, 'utf-8'));
     const signedData = Buffer.concat([body.authenticatorData, Buffer.from(hash)]);
@@ -289,8 +401,17 @@ async function handleSignInSubmit(req, res, sessionId) {
     if (isValid) {
         console.log('Authentication successful!');
 
+        if (authData.signCount < user.passkey.signCount) {
+            console.warn('The stored sign count is greater than the given sign count, the authenticator may be cloned');
+        }
+
+        // No need to update uvInitialised as it's required to be true initially.
+        assert(user.passkey.uvInitialized);
+
+        const isBackedUp = isBitFlagSet(authData.flags, FLAG_BACKUP_STATE);
+        database.updatePasskeyState(body.userHandle, authData.signCount, isBackedUp);
+
         // TODO: Update session to indicate that the user is authenticated.
-        // TODO: Update the stored passkey data as necessary.
 
         res.writeHead(302, { 'Location': '/' });
         res.end();

@@ -21,7 +21,8 @@
 
                 const passkeyRequestOptions = {
                     challenge,
-                    rpId: RP_HOST
+                    rpId: RP_HOST,
+                    userVerification: 'required'
                 };
 
                 console.log('Requesting credential...');
