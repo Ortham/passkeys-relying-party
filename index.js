@@ -1,5 +1,5 @@
 import assert from 'assert/strict';
-import crypto from 'crypto';
+import { webcrypto } from 'crypto';
 import { readFile } from 'fs/promises';
 import { createServer } from 'http';
 import { decode, decodeMultiple } from 'cbor-x/decode';
@@ -73,6 +73,17 @@ function getCookies(req) {
     return new Map();
 }
 
+function getRandomBytes(count) {
+    const array = new Uint8Array(count);
+    webcrypto.getRandomValues(array);
+
+    return Buffer.from(array.buffer);
+}
+
+function sha256(buffer) {
+    return webcrypto.subtle.digest('SHA-256', buffer);
+}
+
 function setSessionCookie(req, res) {
     const SESSION_COOKIE_NAME = 'SESSIONID';
 
@@ -81,7 +92,7 @@ function setSessionCookie(req, res) {
     let value = cookies.get(SESSION_COOKIE_NAME);
 
     if (value === undefined) {
-        value = crypto.randomBytes(16).toString('base64');
+        value = getRandomBytes(16).toString('base64');
         res.setHeader('Set-Cookie', [`${SESSION_COOKIE_NAME}=${value}`, 'HttpOnly', 'SameSite=Strict'])
     }
 
@@ -105,7 +116,7 @@ function readBody(req) {
 }
 
 function serveChallenge(res, sessionId) {
-    const challenge = crypto.randomBytes(16);
+    const challenge = getRandomBytes(16);
 
     database.insertChallenge(sessionId, challenge);
 
@@ -118,7 +129,7 @@ function serveChallenge(res, sessionId) {
 function serveNewUserId(res) {
     // TODO: Come up with a better way of handling user ID generation.
     // Would be better to insert this into the DB now in case of collisions.
-    const userId = crypto.randomBytes(16).toString('base64url');
+    const userId = getRandomBytes(16).toString('base64url');
 
     res.writeHead(200, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({
@@ -235,7 +246,7 @@ function parseSignUpBody(body) {
 
 async function validateRpIdHash(rpIdHash) {
     const RP_ID = Buffer.from('localhost', 'utf-8');
-    const expectedRpIdHash = await crypto.subtle.digest('SHA-256', RP_ID);
+    const expectedRpIdHash = await sha256(RP_ID);
 
     assert.strictEqual(rpIdHash.toString('hex'), Buffer.from(expectedRpIdHash).toString('hex'));
 }
@@ -330,7 +341,7 @@ async function handleSignUpSubmit(req, res, sessionId) {
     const jwk = coseToJwk(body.passkey.attestationObject.credentialPublicKey);
     const algorithm = getAlgorithm(jwk);
 
-    const publicKey = await crypto.subtle.importKey('jwk', jwk, algorithm, true, ['verify']);
+    const publicKey = await webcrypto.subtle.importKey('jwk', jwk, algorithm, true, ['verify']);
 
     const user = {
         id: body.userId,
@@ -395,10 +406,10 @@ async function handleSignInSubmit(req, res, sessionId) {
     // Don't care about backup eligibility or state beyond basic validation.
     // Don't care about client extensions.
 
-    const hash = await crypto.subtle.digest('SHA-256', Buffer.from(body.clientDataJSON, 'utf-8'));
+    const hash = await sha256(Buffer.from(body.clientDataJSON, 'utf-8'));
     const signedData = Buffer.concat([body.authenticatorData, Buffer.from(hash)]);
 
-    const isValid = await crypto.subtle.verify(user.passkey.algorithm, user.passkey.publicKey, body.signature, signedData);
+    const isValid = await webcrypto.subtle.verify(user.passkey.algorithm, user.passkey.publicKey, body.signature, signedData);
 
     if (isValid) {
         console.log('Authentication successful!');
