@@ -1,7 +1,8 @@
-import assert from 'assert/strict';
-import { webcrypto } from 'crypto';
-import { readFile } from 'fs/promises';
-import { createServer } from 'http';
+import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
+import { webcrypto } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { decode, decodeMultiple } from 'cbor-x/decode';
 
 const PORT = 8080;
