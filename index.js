@@ -182,7 +182,7 @@ function parseAuthData(authData, requireCredentialData) {
     let credentialIdLength;
     let credentialId;
     let credentialPublicKey;
-    let extensions = new Map();
+    let extensions;
     if (hasCredentialData) {
         // Attested credential data fields.
         aaguid = authData.subarray(37, 53);
@@ -211,7 +211,7 @@ function parseAuthData(authData, requireCredentialData) {
 
         extensions = remaining[0];
     } else {
-        assert(authData.length, 37);
+        assert.strictEqual(authData.length, 37);
     }
 
     return { rpIdHash, flags, signCount, aaguid, credentialIdLength, credentialId, credentialPublicKey, extensions };
