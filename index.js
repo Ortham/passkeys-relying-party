@@ -1,8 +1,8 @@
 import assert from 'assert/strict';
 import crypto from 'crypto';
-import fs from 'fs/promises';
-import http from 'http';
-import { decode, decodeMultiple } from 'cbor-x';
+import { readFile } from 'fs/promises';
+import { createServer } from 'http';
+import { decode, decodeMultiple } from 'cbor-x/decode';
 
 const PORT = 8080;
 
@@ -59,7 +59,7 @@ class Database {
 const database = new Database();
 
 async function serveFile(res, filePath, contentType) {
-    const file = await fs.readFile('./public/' + filePath);
+    const file = await readFile('./public/' + filePath);
 
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(file);
@@ -425,7 +425,7 @@ async function handleSignInSubmit(req, res, sessionId) {
     }
 }
 
-const server = http.createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
     const HTML = 'text/html';
     const CSS = 'text/css';
     const JAVASCRIPT = 'text/javascript';
