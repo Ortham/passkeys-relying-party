@@ -18,9 +18,7 @@ export async function isValidSessionId(sessionId: string) {
         return false;
     }
 
-    const session = await database.getSession(sessionId);
-
-    return session !== undefined;
+    return database.sessionExists(sessionId);
 }
 
 export async function createSession() {
@@ -94,8 +92,8 @@ export async function handleSignUp(bodyString: string, sessionId: string) {
     // Don't care about backup eligibility or backup state beyond validation.
     // Don't care about client extensions.
 
-    const matchingCredentialIdCount = await database.countUsersByCredentialId(body.passkey.attestationObject.credentialId);
-    assert.strictEqual(matchingCredentialIdCount, 0);
+    const credentialExists = await database.credentialExists(body.passkey.attestationObject.credentialId);
+    assert(!credentialExists);
 
     const jwk = coseToJwk(body.passkey.attestationObject.credentialPublicKey);
 

@@ -19,7 +19,31 @@ interface Session {
     challenge?: Buffer;
 }
 
-class Database {
+interface Database {
+    insertUser(user: User): Promise<void>;
+
+    getUser(userId: Buffer): Promise<User | undefined>;
+
+    insertSession(sessionId: string): Promise<void>;
+
+    updateSessionChallenge(sessionId: string, challenge: Buffer): Promise<void>;
+
+    updateSessionUserId(sessionId: string, userId: Buffer): Promise<void>;
+
+    sessionExists(sessionId: string): Promise<boolean>;
+
+    getChallenge(sessionId: string): Promise<Buffer | undefined>;
+
+    getUserBySessionId(sessionId: string): Promise<User | undefined>;
+
+    deleteSession(sessionId: string): Promise<void>;
+
+    credentialExists(credentialId: Buffer): Promise<boolean>;
+
+    updatePasskeyState(userId: Buffer, signCount: number, backupState: boolean): Promise<void>;
+}
+
+class InProcessDatabase implements Database {
     private users: Map<string, User>;
     private sessions: Map<string, Session>;
 
@@ -58,8 +82,8 @@ class Database {
         }
     }
 
-    async getSession(sessionId: string) {
-        return this.sessions.get(sessionId);
+    async sessionExists(sessionId: string) {
+        return this.sessions.get(sessionId) !== undefined;
     }
 
     async getChallenge(sessionId: string) {
@@ -89,7 +113,7 @@ class Database {
         this.sessions.delete(sessionId);
     }
 
-    async countUsersByCredentialId(credentialId: Buffer) {
+    async credentialExists(credentialId: Buffer) {
         const passkeyId = credentialId.toString('base64url');
         let count = 0;
 
@@ -99,7 +123,7 @@ class Database {
             }
         }
 
-        return count;
+        return count > 0;
     }
 
     async updatePasskeyState(userId: Buffer, signCount: number, backupState: boolean) {
@@ -113,4 +137,4 @@ class Database {
     }
 };
 
-export const database = new Database();
+export const database: Database = new InProcessDatabase();
