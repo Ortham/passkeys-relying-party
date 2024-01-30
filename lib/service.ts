@@ -2,18 +2,18 @@ import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import { webcrypto } from 'node:crypto';
 import { RP_ID } from './config.js';
-import { database } from './database.js';
-import { FLAG_USER_VERIFIED, FLAG_BACKUP_ELIGIBILITY, FLAG_BACKUP_STATE, validateClientData, parseAuthData, parseSignUpBody, coseToJwk, getAlgorithm, parseSignInBody } from './webauthn.js';
+import { User, database } from './database.js';
+import { FLAG_USER_VERIFIED, FLAG_BACKUP_ELIGIBILITY, FLAG_BACKUP_STATE, validateClientData, parseAuthData, parseSignUpBody, coseToJwk, parseSignInBody, validateAuthData, validateAttestationObject, SignUpBody, verify } from './webauthn.js';
 import { isBitFlagSet, sha256 } from './util.js';
 
-function getRandomBytes(count) {
+function getRandomBytes(count: number) {
     const array = new Uint8Array(count);
     webcrypto.getRandomValues(array);
 
     return Buffer.from(array.buffer);
 }
 
-export async function isValidSessionId(sessionId) {
+export async function isValidSessionId(sessionId: string) {
     if (sessionId === undefined) {
         return false;
     }
@@ -31,7 +31,7 @@ export async function createSession() {
     return sessionId;
 }
 
-export async function createChallenge(sessionId) {
+export async function createChallenge(sessionId: string) {
     const challenge = getRandomBytes(16);
 
     await database.updateSessionChallenge(sessionId, challenge);
@@ -45,15 +45,15 @@ export function createNewUserId() {
     return getRandomBytes(16).toString('base64url');
 }
 
-function createUser(signUpBody, publicKey, algorithm) {
+function createUser(signUpBody: SignUpBody, publicKey: JsonWebKey): User {
     return {
         id: signUpBody.userId,
         name: signUpBody.username,
         displayName: signUpBody.displayName,
         passkey: {
+            type: 'public-key',
             id: signUpBody.passkey.id,
             publicKey,
-            algorithm,
             signCount: signUpBody.passkey.attestationObject.signCount,
             uvInitialized: isBitFlagSet(signUpBody.passkey.attestationObject.flags, FLAG_USER_VERIFIED),
             transports: signUpBody.passkey.transports,
@@ -63,11 +63,11 @@ function createUser(signUpBody, publicKey, algorithm) {
     };
 }
 
-export async function logout(sessionId) {
+export async function logout(sessionId: string) {
     database.deleteSession(sessionId);
 }
 
-export async function getProfile(sessionId) {
+export async function getProfile(sessionId: string) {
     const user = await database.getUserBySessionId(sessionId);
     if (!user) {
         return undefined;
@@ -79,30 +79,27 @@ export async function getProfile(sessionId) {
     };
 }
 
-export async function handleSignUp(bodyBuffer, sessionId) {
-    const body = parseSignUpBody(bodyBuffer);
+export async function handleSignUp(bodyString: string, sessionId: string) {
+    const body = parseSignUpBody(bodyString);
     console.log('Request body is', body);
 
     const expectedChallenge = await database.getChallenge(sessionId);
+    assert(expectedChallenge !== undefined);
 
     validateClientData(body.passkey.clientData, 'webauthn.create', expectedChallenge);
 
-    await validateAttestationObject(body.passkey.attestationObject, RP_ID);
+    const expectedRpIdHash = await sha256(RP_ID);
+    validateAttestationObject(body.passkey.attestationObject, expectedRpIdHash);
 
     // Don't care about backup eligibility or backup state beyond validation.
     // Don't care about client extensions.
-
-
 
     const matchingCredentialIdCount = await database.countUsersByCredentialId(body.passkey.attestationObject.credentialId);
     assert.strictEqual(matchingCredentialIdCount, 0);
 
     const jwk = coseToJwk(body.passkey.attestationObject.credentialPublicKey);
-    const algorithm = getAlgorithm(jwk);
 
-    const publicKey = await webcrypto.subtle.importKey('jwk', jwk, algorithm, true, ['verify']);
-
-    const user = createUser(body, publicKey, algorithm);
+    const user = createUser(body, jwk);
 
     await database.insertUser(user);
     console.log('Stored user', user);
@@ -110,11 +107,12 @@ export async function handleSignUp(bodyBuffer, sessionId) {
     await database.updateSessionUserId(sessionId, user.id);
 }
 
-export async function handleSignIn(bodyBuffer, sessionId) {
-    const body = parseSignInBody(bodyBuffer);
+export async function handleSignIn(bodyString: string, sessionId: string) {
+    const body = parseSignInBody(bodyString);
     console.log('Request body is', body);
 
     const user = await database.getUser(body.userHandle);
+    assert(user !== undefined);
     console.log('Retrieved user data', user);
 
     assert.strictEqual(body.id, user.passkey.id);
@@ -122,12 +120,14 @@ export async function handleSignIn(bodyBuffer, sessionId) {
     const clientData = JSON.parse(body.clientDataJSON);
 
     const expectedChallenge = await database.getChallenge(sessionId);
+    assert(expectedChallenge !== undefined);
 
     validateClientData(clientData, 'webauthn.get', expectedChallenge);
 
     const authData = parseAuthData(body.authenticatorData);
 
-    await validateAuthData(authData, RP_ID, false);
+    const expectedRpIdHash = await sha256(RP_ID);
+    validateAuthData(authData, expectedRpIdHash, false);
 
     const isBackupEligible = isBitFlagSet(authData.flags, FLAG_BACKUP_ELIGIBILITY);
     assert.strictEqual(isBackupEligible, user.passkey.backupEligible, "Backup Eligiblity state has changed");
@@ -138,7 +138,7 @@ export async function handleSignIn(bodyBuffer, sessionId) {
     const hash = await sha256(Buffer.from(body.clientDataJSON, 'utf-8'));
     const signedData = Buffer.concat([body.authenticatorData, Buffer.from(hash)]);
 
-    const isValid = await webcrypto.subtle.verify(user.passkey.algorithm, user.passkey.publicKey, body.signature, signedData);
+    const isValid = await verify(user.passkey.publicKey, body.signature, signedData);
 
     if (isValid) {
         console.log('Authentication successful!');

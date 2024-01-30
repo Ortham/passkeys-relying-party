@@ -1,25 +1,34 @@
 import { Buffer } from 'node:buffer';
 import { readFile } from 'node:fs/promises';
 import { isValidSessionId, createSession, createChallenge, createNewUserId, handleSignUp, handleSignIn, logout, getProfile } from './service.js';
+import { IncomingMessage, ServerResponse } from 'node:http';
+import assert from 'node:assert';
 
 const SESSION_COOKIE_NAME = 'SESSIONID';
 
-async function serveFile(res, filePath, contentType) {
+async function serveFile(res: ServerResponse, filePath: string, contentType: string) {
     const file = await readFile('./public/' + filePath);
 
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(file);
 }
 
-function getCookies(req) {
+function getCookies(req: IncomingMessage) {
     if (req.headers.cookie) {
-        return new Map(req.headers.cookie.split('; ').map(pair => pair.split('=')));
+        const pairs: [string, string][] = req.headers.cookie.split('; ').map(pair => {
+            const index = pair.indexOf('=');
+            assert(index > 0);
+            const key = pair.substring(0, index);
+            const value = pair.substring(index + 1);
+            return [key, value];
+        });
+        return new Map(pairs);
     }
 
     return new Map();
 }
 
-async function setSessionCookie(req, res) {
+async function setSessionCookie(req: IncomingMessage, res: ServerResponse) {
 
     const cookies = getCookies(req);
 
@@ -34,9 +43,9 @@ async function setSessionCookie(req, res) {
     return value;
 }
 
-function readBody(req) {
+function readBody(req: IncomingMessage): Promise<string> {
     return new Promise((resolve, reject) => {
-        const chunks = [];
+        const chunks: Buffer[] = [];
         req.on('data', chunk => {
             chunks.push(chunk);
         });
@@ -50,21 +59,21 @@ function readBody(req) {
     });
 }
 
-async function serveChallenge(res, sessionId) {
+async function serveChallenge(res: ServerResponse, sessionId: string) {
     const challenge = await createChallenge(sessionId);
 
     res.writeHead(200, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({ challenge }));
 }
 
-function serveNewUserId(res) {
+function serveNewUserId(res: ServerResponse) {
     const id = createNewUserId();
 
     res.writeHead(200, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({ id }));
 }
 
-async function handleLogout(res, sessionId) {
+async function handleLogout(res: ServerResponse, sessionId: string) {
     await logout(sessionId);
 
     res.writeHead(302, {
@@ -74,7 +83,7 @@ async function handleLogout(res, sessionId) {
     res.end();
 }
 
-async function handleGetProfile(res, sessionId) {
+async function handleGetProfile(res: ServerResponse, sessionId: string) {
     const profile = await getProfile(sessionId);
 
     if (profile) {
@@ -86,22 +95,22 @@ async function handleGetProfile(res, sessionId) {
     }
 }
 
-async function handleSignUpSubmit(req, res, sessionId) {
+async function handleSignUpSubmit(req: IncomingMessage, res: ServerResponse, sessionId: string) {
     // https://w3c.github.io/webauthn/#sctn-registering-a-new-credential
-    const bodyBuffer = await readBody(req);
+    const body = await readBody(req);
 
-    await handleSignUp(bodyBuffer, sessionId);
+    await handleSignUp(body, sessionId);
 
     res.writeHead(302, { 'Location': '/' });
     res.end();
 }
 
 
-async function handleSignInSubmit(req, res, sessionId) {
+async function handleSignInSubmit(req: IncomingMessage, res: ServerResponse, sessionId: string) {
     // https://w3c.github.io/webauthn/#sctn-verifying-assertion
-    const bodyBuffer = await readBody(req);
+    const body = await readBody(req);
 
-    const isValid = await handleSignIn(bodyBuffer, sessionId);
+    const isValid = await handleSignIn(body, sessionId);
 
     if (isValid) {
         res.writeHead(302, { 'Location': '/' });
@@ -112,10 +121,12 @@ async function handleSignInSubmit(req, res, sessionId) {
     }
 }
 
-export async function requestListener(req, res) {
+export async function requestListener(req: IncomingMessage, res: ServerResponse) {
     const HTML = 'text/html';
     const CSS = 'text/css';
     const JAVASCRIPT = 'text/javascript';
+
+    assert(req.url);
 
     const sessionId = await setSessionCookie(req, res);
 
