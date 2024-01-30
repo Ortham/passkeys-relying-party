@@ -1,17 +1,20 @@
+
+interface PasskeyData {
+    type: 'public-key';
+    id: string;
+    signCount: number;
+    backupState: boolean;
+    uvInitialized: boolean;
+    transports: string[];
+    backupEligible: boolean;
+    publicKey: JsonWebKey;
+}
+
 export interface User {
     id: Buffer;
     name: string;
     displayName: string;
-    passkey: {
-        type: 'public-key';
-        id: string;
-        signCount: number;
-        backupState: boolean;
-        uvInitialized: boolean;
-        transports: string[];
-        backupEligible: boolean;
-        publicKey: JsonWebKey;
-    };
+    passkeys: PasskeyData[];
 }
 
 interface Session {
@@ -21,8 +24,6 @@ interface Session {
 
 interface Database {
     insertUser(user: User): Promise<void>;
-
-    getUser(userId: Buffer): Promise<User | undefined>;
 
     insertSession(sessionId: string): Promise<void>;
 
@@ -38,9 +39,11 @@ interface Database {
 
     deleteSession(sessionId: string): Promise<void>;
 
-    credentialExists(credentialId: Buffer): Promise<boolean>;
+    passkeyExists(credentialId: Buffer): Promise<boolean>;
 
-    updatePasskeyState(userId: Buffer, signCount: number, backupState: boolean): Promise<void>;
+    getUserPasskeyData(userId: Buffer, credentialId: string): Promise<PasskeyData | undefined>;
+
+    updatePasskeyState(userId: Buffer, credentialId: string, signCount: number, backupState: boolean): Promise<void>;
 }
 
 class InProcessDatabase implements Database {
@@ -54,10 +57,6 @@ class InProcessDatabase implements Database {
 
     async insertUser(user: User) {
         this.users.set(user.id.toString('base64'), user);
-    }
-
-    async getUser(userId: Buffer) {
-        return this.users.get(userId.toString('base64'));
     }
 
     async insertSession(sessionId: string) {
@@ -113,27 +112,43 @@ class InProcessDatabase implements Database {
         this.sessions.delete(sessionId);
     }
 
-    async credentialExists(credentialId: Buffer) {
+    async passkeyExists(credentialId: Buffer) {
         const passkeyId = credentialId.toString('base64url');
         let count = 0;
 
         for (const [_id, user] of this.users) {
-            if (user.passkey.id === passkeyId) {
-                count += 1;
+            for (const passkey of user.passkeys) {
+                if (passkey.id === passkeyId) {
+                    count += 1;
+                }
             }
         }
 
         return count > 0;
     }
 
-    async updatePasskeyState(userId: Buffer, signCount: number, backupState: boolean) {
+    async getUserPasskeyData(userId: Buffer, credentialId: string) {
         const user = this.users.get(userId.toString('base64'));
         if (!user) {
             throw new Error(`User with ID ${userId} is undefined`);
         }
 
-        user.passkey.signCount = signCount;
-        user.passkey.backupState = backupState;
+        return user.passkeys.find(passkey => passkey.id === credentialId);
+    }
+
+    async updatePasskeyState(userId: Buffer, credentialId: string, signCount: number, backupState: boolean) {
+        const user = this.users.get(userId.toString('base64'));
+        if (!user) {
+            throw new Error(`User with ID ${userId} is undefined`);
+        }
+
+        const passkey = user.passkeys.find(passkey => passkey.id === credentialId);
+        if (!passkey) {
+            throw new Error(`Passkey with ID ${credentialId} is undefined`);
+        }
+
+        passkey.signCount = signCount;
+        passkey.backupState = backupState;
     }
 };
 

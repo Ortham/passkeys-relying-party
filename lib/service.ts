@@ -48,7 +48,7 @@ function createUser(signUpBody: SignUpBody, publicKey: JsonWebKey): User {
         id: signUpBody.userId,
         name: signUpBody.username,
         displayName: signUpBody.displayName,
-        passkey: {
+        passkeys: [{
             type: 'public-key',
             id: signUpBody.passkey.id,
             publicKey,
@@ -57,7 +57,7 @@ function createUser(signUpBody: SignUpBody, publicKey: JsonWebKey): User {
             transports: signUpBody.passkey.transports,
             backupEligible: isBitFlagSet(signUpBody.passkey.attestationObject.flags, FLAG_BACKUP_ELIGIBILITY),
             backupState: isBitFlagSet(signUpBody.passkey.attestationObject.flags, FLAG_BACKUP_STATE)
-        }
+        }]
     };
 }
 
@@ -92,8 +92,8 @@ export async function handleSignUp(bodyString: string, sessionId: string) {
     // Don't care about backup eligibility or backup state beyond validation.
     // Don't care about client extensions.
 
-    const credentialExists = await database.credentialExists(body.passkey.attestationObject.credentialId);
-    assert(!credentialExists);
+    const passkeyExists = await database.passkeyExists(body.passkey.attestationObject.credentialId);
+    assert(!passkeyExists);
 
     const jwk = coseToJwk(body.passkey.attestationObject.credentialPublicKey);
 
@@ -109,11 +109,9 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
     const body = parseSignInBody(bodyString);
     console.log('Request body is', body);
 
-    const user = await database.getUser(body.userHandle);
-    assert(user !== undefined);
-    console.log('Retrieved user data', user);
-
-    assert.strictEqual(body.id, user.passkey.id);
+    const passkey = await database.getUserPasskeyData(body.userHandle, body.id);
+    assert(passkey !== undefined);
+    console.log('Retrieved passkey data', passkey);
 
     const clientData = JSON.parse(body.clientDataJSON);
 
@@ -128,7 +126,7 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
     validateAuthData(authData, expectedRpIdHash, false);
 
     const isBackupEligible = isBitFlagSet(authData.flags, FLAG_BACKUP_ELIGIBILITY);
-    assert.strictEqual(isBackupEligible, user.passkey.backupEligible, "Backup Eligiblity state has changed");
+    assert.strictEqual(isBackupEligible, passkey.backupEligible, "Backup Eligiblity state has changed");
 
     // Don't care about backup eligibility or state beyond basic validation.
     // Don't care about client extensions.
@@ -136,20 +134,20 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
     const hash = await sha256(Buffer.from(body.clientDataJSON, 'utf-8'));
     const signedData = Buffer.concat([body.authenticatorData, Buffer.from(hash)]);
 
-    const isValid = await verify(user.passkey.publicKey, body.signature, signedData);
+    const isValid = await verify(passkey.publicKey, body.signature, signedData);
 
     if (isValid) {
         console.log('Authentication successful!');
 
-        if (authData.signCount < user.passkey.signCount) {
+        if (authData.signCount < passkey.signCount) {
             console.warn('The stored sign count is greater than the given sign count, the authenticator may be cloned');
         }
 
         // No need to update uvInitialised as it's required to be true initially.
-        assert(user.passkey.uvInitialized);
+        assert(passkey.uvInitialized);
 
         const isBackedUp = isBitFlagSet(authData.flags, FLAG_BACKUP_STATE);
-        await database.updatePasskeyState(body.userHandle, authData.signCount, isBackedUp);
+        await database.updatePasskeyState(body.userHandle, body.id, authData.signCount, isBackedUp);
 
         await database.updateSessionUserId(sessionId, body.userHandle);
     } else {
