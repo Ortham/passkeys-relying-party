@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>Passkeys Demo: Profile</title>
+        <link href="/style.css" rel="stylesheet" />
+    </head>
+    <body>
+        <div id="profile">
+            <p>Username: <span id="username"></span></p>
+            <p>Display name: <span id="displayName"></span></p>
+        </div>
+        <p id="errorText"></p>
+    </body>
+    <script type="module">
+        async function getProfile() {
+            const response = await fetch('/api/profile');
+            if (response.ok) {
+                const json = await response.json();
+                document.getElementById('username').textContent = json.username;
+                document.getElementById('displayName').textContent = json.displayName;
+            } else if (response.status === 401) {
+                document.getElementById('profile').hidden = true;
+                document.getElementById('errorText').textContent = 'You are not logged in!';
+            } else {
+                document.getElementById('profile').hidden = true;
+                document.getElementById('errorText').textContent = 'Error fetching profile data: ' + await response.text();
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', getProfile);
+        } else {
+            getProfile();
+        }
+    </script>
+</html>

@@ -6,14 +6,14 @@
         <link href="/style.css" rel="stylesheet" />
     </head>
     <body>
-        <form id="signInForm" action="/signIn" method="post">
+        <form id="signInForm" action="/api/signIn" method="post">
             <!-- <input type="text" name="username" autocomplete="username webauthn" hidden /> -->
             <input id="passkeyInput" name="passkey" hidden />
             <button type="button" id="signInButton">Sign In</button>
             <p id="errorText"></p>
         </form>
         <script type="module">
-            import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, RP_HOST } from './browser.js';
+            import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, RP_ID } from './browser.js';
 
             async function onSignIn() {
                 const challenge = await getChallenge();
@@ -22,7 +22,7 @@
 
                 const passkeyRequestOptions = {
                     challenge,
-                    rpId: RP_HOST,
+                    rpId: RP_ID,
                     userVerification: 'required'
                 };
 

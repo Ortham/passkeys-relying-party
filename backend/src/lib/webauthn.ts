@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import { decode, decodeMultiple } from 'cbor-x/decode';
-import { PORT } from './config.js';
+import { ALLOWED_ORIGINS } from './config.js';
 import { isBitFlagSet } from './util.js';
 import { webcrypto } from 'node:crypto';
 
@@ -77,7 +77,6 @@ export interface SignUpBody {
     username: string;
     displayName: string;
     passkey: {
-        id: string;
         clientData: ClientData;
         attestationObject: AttestationObject;
         transports: string[];
@@ -85,7 +84,7 @@ export interface SignUpBody {
 }
 
 interface SignInBody {
-    id: string;
+    id: Buffer;
     clientDataJSON: string;
     signature: Buffer;
     userHandle: Buffer;
@@ -93,11 +92,12 @@ interface SignInBody {
 }
 
 export function validateClientData(clientData: ClientData, expectedType: string, expectedChallenge: Buffer) {
-    const allowedOrigins = [`http://localhost:${PORT}`];
-
     assert.strictEqual(clientData.type, expectedType);
-    assert.strictEqual(clientData.challenge, expectedChallenge.toString('base64url'));
-    assert(allowedOrigins.includes(clientData.origin), `Origin ${clientData.origin} is not allowed`);
+
+    // For some reason assert.strictEqual(clientData.challenge, expectedChallenge.toString('base64url')) fails when run in AWS Lambda, with the expected value logged being a byte array rather than the expected base64url string, it's like there's an invalid optimisation applied.
+    assert(Buffer.from(clientData.challenge, 'base64url').equals(expectedChallenge));
+
+    assert(ALLOWED_ORIGINS.includes(clientData.origin), `Origin ${clientData.origin} is not allowed`);
     assert.strictEqual(clientData.topOrigin, undefined);
 }
 
@@ -178,7 +178,7 @@ function decodeAttestationObject(attestationObject: Buffer): AttestationObject {
 }
 
 export function validateAuthData(authData: AuthData, expectedRpIdHash: ArrayBuffer, requireCredentialData: boolean) {
-    assert.strictEqual(authData.rpIdHash.toString('hex'), Buffer.from(expectedRpIdHash).toString('hex'));
+    assert(authData.rpIdHash.equals(Buffer.from(expectedRpIdHash)));
 
     assert(isBitFlagSet(authData.flags, FLAG_USER_VERIFIED), 'User Verified bit is not set');
 
@@ -307,7 +307,6 @@ export function parseSignUpBody(body: string): SignUpBody {
         username,
         displayName,
         passkey: {
-            id: passkey.id,
             clientData: passkey.clientData,
             attestationObject,
             transports: passkey.transports
@@ -322,7 +321,7 @@ export function parseSignInBody(body: string): SignInBody {
     const passkey = JSON.parse(passkeyJSON);
 
     return {
-        id: passkey.id,
+        id: Buffer.from(passkey.id, 'base64url'),
         clientDataJSON: passkey.clientDataJSON,
         signature: Buffer.from(passkey.signature, 'base64'),
         userHandle: Buffer.from(passkey.userHandle, 'base64'),

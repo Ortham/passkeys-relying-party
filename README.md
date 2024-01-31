@@ -33,3 +33,27 @@ bun run index.js
 ```
 
 Then navigate to `http://localhost:8080` in your web browser.
+
+## AWS
+
+The AWS stack is deployed using SAM and involves the use of API Gateway, Lambda, DynamoDB, S3, Certificate Manager and CloudFront. A custom domain is also used.
+
+The SAM template has a single parameter `SiteDomainName`, which is the custom domain name to use. Certificate Manager is configured to use DNS validation for that domain name, and that requires adding a CNAME DNS record for the domain. The deployment will be blocked until that record is seen by Certificate Manager, and the name and value of the record can only be obtained from Certificate Manager after the certificate has been created. However, the record's name and value aren't unique to that certificate, so you can manually create a certificate for the same domain name to get the details and so create the necessary DNS record before deployment.
+
+To use CloudFront with Certificate Manager, the certificate needs to be requested for the us-east-1 region.
+
+To deploy the stack to AWS, first install the AWS CLI and SAM CLI and configure authentication in the AWS CLI so that it authenticates as a user with permission to perform the deployment. Then run:
+
+```
+cd backend/
+npm install
+npm run build
+
+cd ..
+sam deploy
+
+cd frontend
+./deploy.ps1
+```
+
+Once deployment is complete, one of the template's outputs will be the CloudFront distribution's domain name: this should be added as another CNAME record for the custom domain.

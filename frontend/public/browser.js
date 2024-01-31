@@ -1,4 +1,4 @@
-export const RP_HOST = 'localhost';
+export const RP_ID = 'localhost';
 
 export async function arePasskeysSupported() {
     if (window.PublicKeyCredential &&
@@ -26,7 +26,7 @@ export function toBase64(arrayBuffer) {
 }
 
 export async function getChallenge() {
-    const response = await fetch('/challenge');
+    const response = await fetch('/api/challenge');
     const body = await response.json();
 
     return toArrayBuffer(body.challenge);
@@ -34,5 +34,5 @@ export async function getChallenge() {
 
 export function handlePasskeysNotSupported() {
     console.error('Your web browser does not support passkeys!');
-    document.getElementById('errorText').innerText = 'Sign up is not available because your web browser does not appear to support passkeys!';
+    document.getElementById('errorText').textContent = 'Sign up is not available because your web browser does not appear to support passkeys!';
 }

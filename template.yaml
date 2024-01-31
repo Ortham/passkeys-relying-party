@@ -1,0 +1,326 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SAM template for passkeys app
+
+Parameters:
+  SiteDomainName:
+    Type: String
+    Description: Domain name to use the website
+
+Resources:
+  ApiGatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+
+  GetNewUserIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend
+      Handler: build/handlers/getNewUserId.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 60
+      Description: Get a new user ID for use during sign-up.
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /api/newUserId
+            Method: GET
+            RestApiId:
+              Ref: ApiGatewayApi
+
+  GetChallengeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend
+      Handler: build/handlers/getChallenge.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 60
+      Description: Create a session if one doesn't exist and a new challenge for use during sign-up.
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+      Environment:
+        Variables:
+          SESSIONS_TABLE_NAME: !Ref SessionsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /api/challenge
+            Method: GET
+            RestApiId:
+              Ref: ApiGatewayApi
+
+  SignUpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend
+      Handler: build/handlers/signUp.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 60
+      Description: Sign up a user
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PasskeysTable
+      Environment:
+        Variables:
+          SESSIONS_TABLE_NAME: !Ref SessionsTable
+          USERS_TABLE_NAME: !Ref UsersTable
+          PASSKEYS_TABLE_NAME: !Ref PasskeysTable
+          RP_ID: !Ref SiteDomainName
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /api/signUp
+            Method: POST
+            RestApiId:
+              Ref: ApiGatewayApi
+
+  SignInFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend
+      Handler: build/handlers/signIn.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 60
+      Description: Sign in a user
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PasskeysTable
+      Environment:
+        Variables:
+          SESSIONS_TABLE_NAME: !Ref SessionsTable
+          PASSKEYS_TABLE_NAME: !Ref PasskeysTable
+          RP_ID: !Ref SiteDomainName
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /api/signIn
+            Method: POST
+            RestApiId:
+              Ref: ApiGatewayApi
+
+  GetProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend
+      Handler: build/handlers/getProfile.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 60
+      Description: Get a user's profile data
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Environment:
+        Variables:
+          SESSIONS_TABLE_NAME: !Ref SessionsTable
+          USERS_TABLE_NAME: !Ref UsersTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /api/profile
+            Method: GET
+            RestApiId:
+              Ref: ApiGatewayApi
+
+  LogoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend
+      Handler: build/handlers/logout.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 60
+      Description: End a user's current session
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+      Environment:
+        Variables:
+          SESSIONS_TABLE_NAME: !Ref SessionsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /api/logout
+            Method: GET
+            RestApiId:
+              Ref: ApiGatewayApi
+
+  SessionsTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: id
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
+  UsersTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: id
+        Type: Binary
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
+  PasskeysTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: credentialId
+        Type: Binary
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
+  WebsiteBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  WebsiteBucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Id: "PolicyForCloudFrontPrivateContent"
+        Statement:
+          - Sid: "AllowCloudFrontServicePrincipal"
+            Effect: "Allow"
+            Principal:
+              Service: "cloudfront.amazonaws.com"
+            Action: "s3:GetObject"
+            Resource: !Join [ "", [ "arn:aws:s3:::", !Ref WebsiteBucket, "/*" ] ]
+            Condition:
+              StringEquals:
+                "AWS:SourceArn": !Join [ "", [ "arn:aws:cloudfront::", !Ref "AWS::AccountId", ":distribution/", !Ref CloudFrontDistribution ] ]
+
+  TlsCertificate:
+    Type: "AWS::CertificateManager::Certificate"
+    Properties:
+      DomainName: !Ref SiteDomainName
+      KeyAlgorithm: "RSA_2048"
+      ValidationMethod: "DNS"
+
+  CloudFrontDistribution:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Ref SiteDomainName
+        CacheBehaviors:
+          - AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - POST
+              - PATCH
+              - DELETE
+            CachedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # AllViewerExceptHostHeader
+            PathPattern: /api/*
+            TargetOriginId: myApiGatewayOrigin
+            ViewerProtocolPolicy: "https-only"
+
+        Origins:
+          - DomainName: !GetAtt WebsiteBucket.RegionalDomainName
+            Id: "myS3Origin"
+            OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+          - DomainName: !Sub "${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com"
+            OriginPath: /Prod
+            Id: myApiGatewayOrigin
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [ TLSv1.2 ]
+        Enabled: true
+        DefaultRootObject: "index.html"
+        HttpVersion: "http2and3"
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - "GET"
+            - "HEAD"
+          CachedMethods:
+            - "GET"
+            - "HEAD"
+          TargetOriginId: "myS3Origin"
+          CachePolicyId: "658327ea-f89d-4fab-a63d-7e88639e58f6"
+          ViewerProtocolPolicy: "https-only"
+        PriceClass: "PriceClass_100"
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: "whitelist"
+            Locations:
+              - "GB"
+        ViewerCertificate:
+          AcmCertificateArn: !Ref TlsCertificate
+          MinimumProtocolVersion: "TLSv1.2_2021"
+          SslSupportMethod: "sni-only"
+
+  CloudFrontOriginAccessControl:
+    Type: "AWS::CloudFront::OriginAccessControl"
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${WebsiteBucket} OAC"
+        OriginAccessControlOriginType: "s3"
+        SigningBehavior: "always"
+        SigningProtocol: "sigv4"
+
+Outputs:
+  SiteDomainName:
+    Description: "The custom domain name that the site can be accessed at"
+    Value: !Ref SiteDomainName
+  WebsiteBucketName:
+    Description: "S3 Bucket for hosting web frontend"
+    Value: !Ref WebsiteBucket
+  CloudFrontDistributionId:
+    Description: "CloudFront Distribution ID for hosting web front end"
+    Value: !Ref CloudFrontDistribution
+  CloudFrontDistributionDomainName:
+    Description: "CloudFront Distribution Domain Name for accessing web front end"
+    Value: !GetAtt CloudFrontDistribution.DomainName

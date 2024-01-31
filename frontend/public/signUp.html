@@ -6,7 +6,7 @@
         <link href="/style.css" rel="stylesheet" />
     </head>
     <body>
-        <form id="signUpForm" action="/signUp" method="post">
+        <form id="signUpForm" action="/api/signUp" method="post">
             <label for="username">Username: </label>
             <input id="username" name="username" required />
             <label for="displayName">Display name: </label>
@@ -17,7 +17,7 @@
         </form>
     </body>
     <script type="module">
-        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, RP_HOST } from './browser.js';
+        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, RP_ID } from './browser.js';
 
         const RP_NAME = 'Passkeys Demo';
 
@@ -25,7 +25,7 @@
         const WEBAUTHN_ALG_RS256 = -257;
 
         async function getNewUserId() {
-            const response = await fetch('/newUserId');
+            const response = await fetch('/api/newUserId');
             const body = await response.json();
             return body.id;
         }
@@ -37,7 +37,7 @@
                 challenge,
                 rp: {
                     name: RP_NAME,
-                    id: RP_HOST
+                    id: RP_ID
                 },
                 user: {
                     id: toArrayBuffer(newUserId),
@@ -65,7 +65,6 @@
             const clientData = JSON.parse(clientDataJSON);
 
             const passkeyData = {
-                id: credential.id,
                 userId: newUserId,
                 clientData,
                 // Firefox returns nonsense for getPublicKey(), so we can't avoid parsing the attestationObject server-side...

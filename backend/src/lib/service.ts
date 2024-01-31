@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import { webcrypto } from 'node:crypto';
-import { RP_ID } from './config.js';
-import { User, database } from './database.js';
+import { RP_ID_HASH, SESSION_COOKIE_NAME } from './config.js';
+import { PasskeyData, User, database } from './database.js';
 import { FLAG_USER_VERIFIED, FLAG_BACKUP_ELIGIBILITY, FLAG_BACKUP_STATE, validateClientData, parseAuthData, parseSignUpBody, coseToJwk, parseSignInBody, validateAuthData, validateAttestationObject, SignUpBody, verify } from './webauthn.js';
-import { isBitFlagSet, sha256 } from './util.js';
+import { getCookies, isBitFlagSet, sha256 } from './util.js';
 
 function getRandomBytes(count: number) {
     const array = new Uint8Array(count);
@@ -13,7 +13,7 @@ function getRandomBytes(count: number) {
     return Buffer.from(array.buffer);
 }
 
-export async function isValidSessionId(sessionId: string) {
+function isValidSessionId(sessionId: string | undefined) {
     if (sessionId === undefined) {
         return false;
     }
@@ -21,12 +21,35 @@ export async function isValidSessionId(sessionId: string) {
     return database.sessionExists(sessionId);
 }
 
-export async function createSession() {
+async function createSession() {
     const sessionId = getRandomBytes(16).toString('base64url');
 
     await database.insertSession(sessionId);
 
     return sessionId;
+}
+
+export function getSessionId(requestHeaders: Record<string, string | string[] | undefined>) {
+    return getCookies(requestHeaders).get(SESSION_COOKIE_NAME);
+}
+
+export async function getOrCreateSession(requestHeaders: Record<string, string | string[] | undefined>) {
+    let sessionId = getSessionId(requestHeaders);
+    const isValid = await isValidSessionId(sessionId);
+
+    let responseHeaders: Record<string, string> | undefined;
+    if (!isValid) {
+        console.warn('Session ID', sessionId, 'is not valid, creating new session');
+        sessionId = await createSession();
+        responseHeaders = {
+            'Set-Cookie': `${SESSION_COOKIE_NAME}=${sessionId}; HttpOnly; SameSite=Strict; Secure`
+        };
+    }
+
+    return {
+        sessionId: sessionId!,
+        responseHeaders
+    };
 }
 
 export async function createChallenge(sessionId: string) {
@@ -43,26 +66,34 @@ export function createNewUserId() {
     return getRandomBytes(16).toString('base64url');
 }
 
-function createUser(signUpBody: SignUpBody, publicKey: JsonWebKey): User {
+function createUser(signUpBody: SignUpBody): User {
     return {
         id: signUpBody.userId,
         name: signUpBody.username,
-        displayName: signUpBody.displayName,
-        passkeys: [{
-            type: 'public-key',
-            id: signUpBody.passkey.id,
-            publicKey,
-            signCount: signUpBody.passkey.attestationObject.signCount,
-            uvInitialized: isBitFlagSet(signUpBody.passkey.attestationObject.flags, FLAG_USER_VERIFIED),
-            transports: signUpBody.passkey.transports,
-            backupEligible: isBitFlagSet(signUpBody.passkey.attestationObject.flags, FLAG_BACKUP_ELIGIBILITY),
-            backupState: isBitFlagSet(signUpBody.passkey.attestationObject.flags, FLAG_BACKUP_STATE)
-        }]
+        displayName: signUpBody.displayName
+    };
+}
+
+function createPasskey(signUpBody: SignUpBody, publicKey: JsonWebKey): PasskeyData {
+    return {
+        type: 'public-key',
+        credentialId: signUpBody.passkey.attestationObject.credentialId!,
+        userId: signUpBody.userId,
+        publicKey,
+        signCount: signUpBody.passkey.attestationObject.signCount,
+        uvInitialized: isBitFlagSet(signUpBody.passkey.attestationObject.flags, FLAG_USER_VERIFIED),
+        transports: signUpBody.passkey.transports,
+        backupEligible: isBitFlagSet(signUpBody.passkey.attestationObject.flags, FLAG_BACKUP_ELIGIBILITY),
+        backupState: isBitFlagSet(signUpBody.passkey.attestationObject.flags, FLAG_BACKUP_STATE)
     };
 }
 
 export async function logout(sessionId: string) {
-    database.deleteSession(sessionId);
+    await database.deleteSession(sessionId);
+
+    return {
+        'Set-Cookie': `${SESSION_COOKIE_NAME}=; HttpOnly; SameSite=Strict; Secure; Max-Age=0`
+    };
 }
 
 export async function getProfile(sessionId: string) {
@@ -86,8 +117,7 @@ export async function handleSignUp(bodyString: string, sessionId: string) {
 
     validateClientData(body.passkey.clientData, 'webauthn.create', expectedChallenge);
 
-    const expectedRpIdHash = await sha256(RP_ID);
-    validateAttestationObject(body.passkey.attestationObject, expectedRpIdHash);
+    validateAttestationObject(body.passkey.attestationObject, RP_ID_HASH);
 
     // Don't care about backup eligibility or backup state beyond validation.
     // Don't care about client extensions.
@@ -97,10 +127,11 @@ export async function handleSignUp(bodyString: string, sessionId: string) {
 
     const jwk = coseToJwk(body.passkey.attestationObject.credentialPublicKey);
 
-    const user = createUser(body, jwk);
+    const user = createUser(body);
+    const passkey = createPasskey(body, jwk);
 
-    await database.insertUser(user);
-    console.log('Stored user', user);
+    await Promise.all([database.insertUser(user), database.insertPasskey(passkey)]);
+    console.log('Stored user', user, 'and passkey', passkey);
 
     await database.updateSessionUserId(sessionId, user.id);
 }
@@ -109,9 +140,10 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
     const body = parseSignInBody(bodyString);
     console.log('Request body is', body);
 
-    const passkey = await database.getUserPasskeyData(body.userHandle, body.id);
+    const passkey = await database.getPasskeyData(body.id);
     assert(passkey !== undefined);
     console.log('Retrieved passkey data', passkey);
+    assert(passkey.userId.equals(body.userHandle));
 
     const clientData = JSON.parse(body.clientDataJSON);
 
@@ -122,8 +154,7 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
 
     const authData = parseAuthData(body.authenticatorData);
 
-    const expectedRpIdHash = await sha256(RP_ID);
-    validateAuthData(authData, expectedRpIdHash, false);
+    validateAuthData(authData, RP_ID_HASH, false);
 
     const isBackupEligible = isBitFlagSet(authData.flags, FLAG_BACKUP_ELIGIBILITY);
     assert.strictEqual(isBackupEligible, passkey.backupEligible, "Backup Eligiblity state has changed");
@@ -147,7 +178,7 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
         assert(passkey.uvInitialized);
 
         const isBackedUp = isBitFlagSet(authData.flags, FLAG_BACKUP_STATE);
-        await database.updatePasskeyState(body.userHandle, body.id, authData.signCount, isBackedUp);
+        await database.updatePasskeyState(body.id, authData.signCount, isBackedUp);
 
         await database.updateSessionUserId(sessionId, body.userHandle);
     } else {
