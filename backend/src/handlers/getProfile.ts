@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, Handler } from 'aws-lambda';
-import { getProfile, getSessionId } from '../lib/service.js';
+import { getProfile, getSessionId } from '../lib/session.js';
 
 export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _context) => {
     const sessionId = getSessionId(event.headers);

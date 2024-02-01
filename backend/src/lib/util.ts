@@ -1,6 +1,13 @@
 import assert from 'node:assert';
 import { webcrypto } from 'node:crypto';
 
+export function getRandomBytes(count: number) {
+    const array = new Uint8Array(count);
+    webcrypto.getRandomValues(array);
+
+    return Buffer.from(array.buffer);
+}
+
 export function sha256(buffer: Buffer) {
     return webcrypto.subtle.digest('SHA-256', buffer);
 }

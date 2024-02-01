@@ -1,8 +1,11 @@
 import { Buffer } from 'node:buffer';
 import { readFile } from 'node:fs/promises';
-import { createChallenge, createNewUserId, handleSignUp, handleSignIn, logout, getProfile, getOrCreateSession } from './service.js';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import assert from 'node:assert';
+import { createNewUserId } from '../handlers/getNewUserId.js';
+import { createChallenge, getOrCreateSession, getProfile, logout } from './session.js';
+import { handleSignUp } from '../handlers/signUp.js';
+import { handleSignIn } from '../handlers/signIn.js';
 
 async function serveFile(res: ServerResponse, filePath: string, contentType: string) {
     const file = await readFile('../frontend/public/' + filePath);
@@ -46,7 +49,7 @@ async function serveChallenge(res: ServerResponse, sessionId: string) {
     res.end(JSON.stringify({ challenge }));
 }
 
-function serveNewUserId(res: ServerResponse) {
+async function serveNewUserId(res: ServerResponse) {
     const id = createNewUserId();
 
     res.writeHead(200, {'Content-Type': 'application/json'});
