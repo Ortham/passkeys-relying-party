@@ -17,7 +17,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: backend
-      Handler: build/handlers/getNewUserId.lambdaHandler
+      Handler: getNewUserId.lambdaHandler
       Runtime: nodejs20.x
       Architectures:
         - x86_64
@@ -32,12 +32,21 @@ Resources:
             Method: GET
             RestApiId:
               Ref: ApiGatewayApi
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/getNewUserId.ts
+        Format: cjs
+        OutExtension:
+          - .js=.cjs
+        Target: es2022
 
   GetChallengeFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: backend
-      Handler: build/handlers/getChallenge.lambdaHandler
+      Handler: getChallenge.lambdaHandler
       Runtime: nodejs20.x
       Architectures:
         - x86_64
@@ -58,12 +67,21 @@ Resources:
             Method: GET
             RestApiId:
               Ref: ApiGatewayApi
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/getChallenge.ts
+        Format: cjs
+        OutExtension:
+          - .js=.cjs
+        Target: es2022
 
   SignUpFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: backend
-      Handler: build/handlers/signUp.lambdaHandler
+      Handler: signUp.lambdaHandler
       Runtime: nodejs20.x
       Architectures:
         - x86_64
@@ -91,12 +109,21 @@ Resources:
             Method: POST
             RestApiId:
               Ref: ApiGatewayApi
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/signUp.ts
+        Format: cjs
+        OutExtension:
+          - .js=.cjs
+        Target: es2022
 
   SignInFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: backend
-      Handler: build/handlers/signIn.lambdaHandler
+      Handler: signIn.lambdaHandler
       Runtime: nodejs20.x
       Architectures:
         - x86_64
@@ -121,12 +148,21 @@ Resources:
             Method: POST
             RestApiId:
               Ref: ApiGatewayApi
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/signIn.ts
+        Format: cjs
+        OutExtension:
+          - .js=.cjs
+        Target: es2022
 
   GetProfileFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: backend
-      Handler: build/handlers/getProfile.lambdaHandler
+      Handler: getProfile.lambdaHandler
       Runtime: nodejs20.x
       Architectures:
         - x86_64
@@ -150,12 +186,21 @@ Resources:
             Method: GET
             RestApiId:
               Ref: ApiGatewayApi
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/getProfile.ts
+        Format: cjs
+        OutExtension:
+          - .js=.cjs
+        Target: es2022
 
   LogoutFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: backend
-      Handler: build/handlers/logout.lambdaHandler
+      Handler: logout.lambdaHandler
       Runtime: nodejs20.x
       Architectures:
         - x86_64
@@ -176,6 +221,15 @@ Resources:
             Method: GET
             RestApiId:
               Ref: ApiGatewayApi
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/logout.ts
+        Format: cjs
+        OutExtension:
+          - .js=.cjs
+        Target: es2022
 
   SessionsTable:
     Type: AWS::Serverless::SimpleTable

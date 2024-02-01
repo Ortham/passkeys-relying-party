@@ -117,7 +117,7 @@ export async function handleSignUp(bodyString: string, sessionId: string) {
 
     validateClientData(body.passkey.clientData, 'webauthn.create', expectedChallenge);
 
-    validateAttestationObject(body.passkey.attestationObject, RP_ID_HASH);
+    validateAttestationObject(body.passkey.attestationObject, await RP_ID_HASH);
 
     // Don't care about backup eligibility or backup state beyond validation.
     // Don't care about client extensions.
@@ -154,7 +154,7 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
 
     const authData = parseAuthData(body.authenticatorData);
 
-    validateAuthData(authData, RP_ID_HASH, false);
+    validateAuthData(authData, await RP_ID_HASH, false);
 
     const isBackupEligible = isBitFlagSet(authData.flags, FLAG_BACKUP_ELIGIBILITY);
     assert.strictEqual(isBackupEligible, passkey.backupEligible, "Backup Eligiblity state has changed");

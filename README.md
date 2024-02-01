@@ -45,11 +45,7 @@ To use CloudFront with Certificate Manager, the certificate needs to be requeste
 To deploy the stack to AWS, first install the AWS CLI and SAM CLI and configure authentication in the AWS CLI so that it authenticates as a user with permission to perform the deployment. Then run:
 
 ```
-cd backend/
-npm install
-npm run build
-
-cd ..
+sam build
 sam deploy
 
 cd frontend
