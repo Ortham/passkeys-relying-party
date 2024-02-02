@@ -273,14 +273,21 @@ Resources:
         Target: es2022
 
   SessionsTable:
-    Type: AWS::Serverless::SimpleTable
+    Type: AWS::DynamoDB::Table
     Properties:
-      PrimaryKey:
-        Name: id
-        Type: String
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PROVISIONED
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 2
         WriteCapacityUnits: 2
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
 
   UsersTable:
     Type: AWS::Serverless::SimpleTable

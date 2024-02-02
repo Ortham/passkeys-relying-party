@@ -29,6 +29,7 @@ export interface User {
 }
 
 interface Session {
+    ttl: number;
     userId?: string;
     challenge?: Buffer;
 }
@@ -62,6 +63,15 @@ interface Database {
     updatePasskeyState(credentialId: Buffer, signCount: number, backupState: boolean): Promise<void>;
 }
 
+function hasSessionExpired(session: Session) {
+    return session.ttl <= Math.floor(Date.now() / 1000);
+}
+
+function getExpiryTimestamp() {
+    const now = Math.floor(Date.now() / 1000);
+    return now + 86400 * 3; // The session will expire 3 days from now.
+}
+
 class InProcessDatabase implements Database {
     private users: Map<string, User>;
     private sessions: Map<string, Session>;
@@ -78,7 +88,9 @@ class InProcessDatabase implements Database {
     }
 
     async insertSession(sessionId: string) {
-        this.sessions.set(sessionId, {});
+        this.sessions.set(sessionId, {
+            ttl: getExpiryTimestamp()
+        });
     }
 
     async updateSessionChallenge(sessionId: string, challenge: Buffer) {
@@ -119,12 +131,13 @@ class InProcessDatabase implements Database {
     }
 
     async sessionExists(sessionId: string) {
-        return this.sessions.get(sessionId) !== undefined;
+        const session = this.sessions.get(sessionId);
+        return session !== undefined && !hasSessionExpired(session);
     }
 
     async getChallenge(sessionId: string) {
         const session = this.sessions.get(sessionId);
-        if (session) {
+        if (session && !hasSessionExpired(session)) {
             return session.challenge;
         } else {
             throw new Error(`Session with ID ${sessionId} is undefined`);
@@ -133,7 +146,7 @@ class InProcessDatabase implements Database {
 
     async getUserBySessionId(sessionId: string) {
         const session = this.sessions.get(sessionId);
-        if (!session) {
+        if (!session || hasSessionExpired(session)) {
             return undefined;
         }
 
@@ -257,7 +270,8 @@ class DynamoDbDatabase implements Database {
         const params = {
             TableName: SESSIONS_TABLE_NAME,
             Item: {
-                id: sessionId
+                id: sessionId,
+                ttl: getExpiryTimestamp()
             }
         };
 
@@ -323,8 +337,8 @@ class DynamoDbDatabase implements Database {
             ProjectionExpression: 'id'
         };
 
-        const item = await this.get(params);
-        return item !== undefined;
+        const session = await this.get(params);
+        return session !== undefined && !hasSessionExpired(session as Session);
     }
 
     async getChallenge(sessionId: string): Promise<Buffer | undefined> {
@@ -336,9 +350,14 @@ class DynamoDbDatabase implements Database {
             ProjectionExpression: 'challenge'
         };
 
-        const item = await this.get(params);
+        const session = await this.get(params);
+
+        if (session === undefined || hasSessionExpired(session as Session)) {
+            return undefined;
+        }
+
         // challenge is deserialised as a Uint8Array.
-        return Buffer.from(item?.['challenge']);
+        return Buffer.from(session['challenge']);
     }
 
     async getUserBySessionId(sessionId: string): Promise<User | undefined> {
@@ -522,9 +541,14 @@ class DynamoDbDatabase implements Database {
             ProjectionExpression: 'userId'
         };
 
-        const result = await this.get(sessionParams);
+        const session = await this.get(sessionParams);
 
-        return result?.['userId'];
+
+        if (session === undefined || hasSessionExpired(session as Session)) {
+            return undefined;
+        }
+
+        return session['userId'];
     }
 
     private async delete(params: DeleteCommandInput) {
