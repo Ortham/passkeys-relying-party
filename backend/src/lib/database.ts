@@ -1,10 +1,12 @@
+import { env } from 'node:process';
+import { Buffer } from 'node:buffer';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DeleteCommand, DynamoDBDocumentClient, GetCommand, GetCommandInput, PutCommand, PutCommandInput, UpdateCommand, UpdateCommandInput } from '@aws-sdk/lib-dynamodb';
 
-const ENDPOINT_OVERRIDE = process.env['ENDPOINT_OVERRIDE'];
-const USERS_TABLE_NAME = process.env['USERS_TABLE_NAME'];
-const SESSIONS_TABLE_NAME = process.env['SESSIONS_TABLE_NAME'];
-const PASSKEYS_TABLE_NAME = process.env['PASSKEYS_TABLE_NAME'];
+const ENDPOINT_OVERRIDE = env['ENDPOINT_OVERRIDE'];
+const USERS_TABLE_NAME = env['USERS_TABLE_NAME'];
+const SESSIONS_TABLE_NAME = env['SESSIONS_TABLE_NAME'];
+const PASSKEYS_TABLE_NAME = env['PASSKEYS_TABLE_NAME'];
 
 export interface PasskeyData {
     type: 'public-key';
@@ -368,4 +370,4 @@ class DynamoDbDatabase implements Database {
     }
 }
 
-export const database: Database = process.env['AWS_REGION'] ? new DynamoDbDatabase() : new InProcessDatabase();
+export const database: Database = env['AWS_REGION'] ? new DynamoDbDatabase() : new InProcessDatabase();

@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { Buffer } from 'node:buffer';
 import { webcrypto } from 'node:crypto';
 
 export function getRandomBytes(count: number) {

@@ -1,9 +1,10 @@
 import { Buffer } from 'node:buffer';
+import { env } from 'node:process';
 import { sha256 } from './util.js';
 
-const RUNNING_IN_AWS = !!process.env['AWS_REGION'];
+const RUNNING_IN_AWS = !!env['AWS_REGION'];
 
-const RP_ID = process.env['RP_ID'] ?? 'localhost';
+const RP_ID = env['RP_ID'] ?? 'localhost';
 
 export const PORT = 8080;
 

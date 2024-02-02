@@ -1,4 +1,5 @@
 import assert from "node:assert";
+import { Buffer } from 'node:buffer';
 
 const WEBAUTHN_ALG_ES256 = -7;
 const WEBAUTHN_ALG_RS256 = -257;

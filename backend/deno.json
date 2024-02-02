@@ -1,0 +1,7 @@
+{
+    "imports": {
+        "aws-lambda": "npm:aws-lambda",
+        "@aws-sdk/client-dynamodb": "npm:@aws-sdk/client-dynamodb",
+        "@aws-sdk/lib-dynamodb": "npm:@aws-sdk/lib-dynamodb"
+    }
+}

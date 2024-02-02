@@ -13,6 +13,7 @@ Unfortunately, because the user IDs are randomly generated, every time you sign 
 To get set up with Node.js installed, run:
 
 ```
+cd backend
 npm install
 npm run build
 npm start
@@ -21,7 +22,8 @@ npm start
 For use with Deno, instead run:
 
 ```
-deno run --allow-net --allow-read=. --unstable-sloppy-imports index.ts
+cd backend
+deno run --allow-net --allow-read=.. --unstable-sloppy-imports src/index.ts
 ```
 
 Sloppy imports are required so that the `*.js` imports that Node.js needs will also work for Deno without renaming them to `*.ts`.
@@ -29,7 +31,8 @@ Sloppy imports are required so that the `*.js` imports that Node.js needs will a
 For use with Bun, instead run:
 
 ```
-bun run index.js
+cd backend
+bun run src/index.ts
 ```
 
 Then navigate to `http://localhost:8080` in your web browser.

@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent, Handler } from 'aws-lambda';
 import assert from 'node:assert';
+import { Buffer } from 'node:buffer';
 import { getSessionId } from '../lib/session.js';
 import { CoseKey, coseToJwk } from '../lib/cose.js';
 import { isBitFlagSet } from '../lib/util.js';
