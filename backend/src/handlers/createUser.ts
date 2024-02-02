@@ -81,7 +81,8 @@ function createUserObject(requestBody: RequestBody): User {
         id: requestBody.userId,
         name: requestBody.username,
         displayName: requestBody.displayName,
-        passkeys: new Set()
+        passkeys: new Set(),
+        sessions: new Set()
     };
 }
 

@@ -1,6 +1,6 @@
 import { env } from 'node:process';
 import { Buffer } from 'node:buffer';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, ReturnValue } from '@aws-sdk/client-dynamodb';
 import { DeleteCommand, DynamoDBDocumentClient, GetCommand, GetCommandInput, PutCommand, PutCommandInput, UpdateCommand, UpdateCommandInput } from '@aws-sdk/lib-dynamodb';
 
 const ENDPOINT_OVERRIDE = env['ENDPOINT_OVERRIDE'];
@@ -25,6 +25,7 @@ export interface User {
     name: string;
     displayName: string;
     passkeys: Set<Buffer>;
+    sessions: Set<string>;
 }
 
 interface Session {
@@ -88,11 +89,30 @@ class InProcessDatabase implements Database {
 
     async updateSessionUserId(sessionId: string, userId: Buffer) {
         const session = this.sessions.get(sessionId);
-        if (session) {
-            session.userId = userId.toString('base64');
-        } else {
+        if (!session) {
             throw new Error(`Session with ID ${sessionId} is undefined`);
         }
+
+        // If the session already had a user ID associated with it, remove the session ID from that user's sessions set.
+        if (session.userId !== undefined) {
+            const user = this.users.get(session.userId);
+            if (!user) {
+                throw new Error(`User with ID ${userId} is undefined`);
+            }
+
+            user.sessions.delete(sessionId);
+        }
+
+        // Update the session's user ID
+        session.userId = userId.toString('base64');
+
+        // Update the user's sessions.
+        const user = this.users.get(session.userId);
+        if (!user) {
+            throw new Error(`User with ID ${userId} is undefined`);
+        }
+
+        user.sessions.add(sessionId);
     }
 
     async sessionExists(sessionId: string) {
@@ -123,6 +143,14 @@ class InProcessDatabase implements Database {
     }
 
     async deleteSession(sessionId: string) {
+        const session = this.sessions.get(sessionId);
+
+        // Update the user's sessions.
+        if (session && session.userId) {
+            const user = this.users.get(session.userId);
+            user?.sessions.delete(sessionId);
+        }
+
         this.sessions.delete(sessionId);
     }
 
@@ -215,10 +243,30 @@ class DynamoDbDatabase implements Database {
             UpdateExpression: "set userId = :userId",
             ExpressionAttributeValues: {
                 ":userId": userId
+            },
+            ReturnValues: ReturnValue.UPDATED_OLD
+        }
+
+        const result = await this.update(params);
+
+        const oldUserId = result.Attributes?.['userId'];
+        if (oldUserId) {
+            // Remove the session from the old user's data.
+            await this.removeSessionFromUser(sessionId, oldUserId);
+        }
+
+        const userParams = {
+            TableName: USERS_TABLE_NAME,
+            Key: {
+                id: userId
+            },
+            UpdateExpression: "ADD sessions :sessionId",
+            ExpressionAttributeValues: {
+                ":sessionId": new Set([sessionId])
             }
         }
 
-        await this.update(params);
+        await this.update(userParams);
     }
 
     async sessionExists(sessionId: string): Promise<boolean> {
@@ -279,16 +327,27 @@ class DynamoDbDatabase implements Database {
             TableName: SESSIONS_TABLE_NAME,
             Key: {
                 id: sessionId
-            }
+            },
+            ReturnValues: ReturnValue.ALL_OLD
         };
 
+        let userId;
         try {
             const data = await this.ddbDocClient.send(new DeleteCommand(params));
             console.log("Success - item deleted", data);
+
+            userId = data.Attributes?.['userId'];
         } catch (err) {
             console.error("Error deleting item:", err);
             throw err;
         }
+
+        if (!userId) {
+            return;
+        }
+
+        // Remove the session from the user's data.
+        await this.removeSessionFromUser(sessionId, userId);
     }
 
     async insertPasskey(passkey: PasskeyData): Promise<void> {
@@ -374,6 +433,7 @@ class DynamoDbDatabase implements Database {
         try {
             const data = await this.ddbDocClient.send(new UpdateCommand(params));
             console.log("Success - item updated", data);
+            return data;
         } catch (err) {
             console.error("Error adding or updating item:", err);
             throw err;
@@ -388,6 +448,21 @@ class DynamoDbDatabase implements Database {
             console.error("Error getting item:", err);
             throw err;
         }
+    }
+
+    private async removeSessionFromUser(sessionId: string, userId: Buffer) {
+        const userParams = {
+            TableName: USERS_TABLE_NAME,
+            Key: {
+                id: userId
+            },
+            UpdateExpression: "DELETE sessions :sessionId",
+            ExpressionAttributeValues: {
+                ":sessionId": new Set([sessionId])
+            }
+        }
+
+        await this.update(userParams);
     }
 }
 
