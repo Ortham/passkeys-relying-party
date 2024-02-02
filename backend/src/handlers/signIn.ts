@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent, Handler } from 'aws-lambda';
 import assert from 'node:assert';
+import { Buffer } from 'node:buffer';
 import { getSessionId } from '../lib/session.js';
 import { webcrypto } from 'node:crypto';
 import { database } from '../lib/database.js';
@@ -9,7 +10,7 @@ import { isBitFlagSet, sha256 } from '../lib/util.js';
 
 interface SignInBody {
     id: Buffer;
-    clientDataJSON: string;
+    clientDataJSON: Buffer;
     signature: Buffer;
     userHandle: Buffer;
     authenticatorData: Buffer;
@@ -23,7 +24,7 @@ function parseSignInBody(body: string): SignInBody {
 
     return {
         id: Buffer.from(passkey.id, 'base64url'),
-        clientDataJSON: passkey.clientDataJSON,
+        clientDataJSON: Buffer.from(passkey.clientDataJSON, 'base64'),
         signature: Buffer.from(passkey.signature, 'base64'),
         userHandle: Buffer.from(passkey.userHandle, 'base64'),
         authenticatorData: Buffer.from(passkey.authenticatorData, 'base64')
@@ -54,12 +55,76 @@ function getVerifyAlgorithm(jwk: JsonWebKey): AlgorithmIdentifier | EcdsaParams 
     throw new Error('Unrecognised algorithm ' + jwk.alg);
 }
 
+function fixPadding(buffer: Buffer, targetLength: number) {
+    while (buffer.byteLength > targetLength) {
+        buffer = buffer.subarray(1);
+    }
+
+    if (buffer.byteLength < targetLength) {
+        const prefix = Buffer.alloc(targetLength - buffer.byteLength, 0);
+        buffer = Buffer.concat([prefix, buffer]);
+    }
+
+    return buffer;
+}
+
+function readDerInteger(buffer: Buffer, expectedValueLength: number): { value: Buffer, end: number } {
+    const DER_TAG_INTEGER = 0x02;
+
+    assert.strictEqual(buffer[0], DER_TAG_INTEGER);
+
+    const valueLength = buffer[1];
+    assert(valueLength !== undefined);
+
+    const start = 2;
+    const end = start + valueLength;
+
+    // Some clients don't pad the values correctly.
+    const value = fixPadding(buffer.subarray(start, end), expectedValueLength);
+
+    return {
+        value,
+        end
+    };
+}
+
+function decodeEcdsaSignature(signature: Buffer, expectedSignatureLength: number): Buffer {
+    const DER_TAG_SEQUENCE = 0x30;
+
+    assert.strictEqual(signature[0], DER_TAG_SEQUENCE);
+    assert.strictEqual(signature[1], signature.byteLength - 2);
+
+    assert.strictEqual(expectedSignatureLength % 2, 0, 'Invalid expected signature length');
+
+    const expectedValueLength = expectedSignatureLength / 2;
+
+    const start = 2;
+    const { value: r, end } = readDerInteger(signature.subarray(start), expectedValueLength);
+    const { value: s } = readDerInteger(signature.subarray(start + end), expectedValueLength);
+
+    return Buffer.concat([r, s]);
+}
+
+function prepareSignature(jwk: JsonWebKey, signature: Buffer): Buffer {
+    if (jwk.alg === 'RS256') {
+        return signature;
+    }
+
+    if (jwk.alg === 'ES256') {
+        // An ECDSA signature is encoded as an ASN.1 DER Ecdsa-Sig-Value (WebAuthn spec section 6.5.6), but webcrypto.subtle.verify expects a raw 64-byte signature.
+        return decodeEcdsaSignature(signature, 64);
+    }
+
+    throw new Error('Unrecognised algorithm ' + jwk.alg);
+}
+
 async function verify(jwk: JsonWebKey, signature: Buffer, signedData: Buffer): Promise<boolean> {
     const importAlgorithm = getImportAlgorithm(jwk);
-    const publicKey = await webcrypto.subtle.importKey('jwk', jwk, importAlgorithm, true, ['verify']);
+    const publicKey = await webcrypto.subtle.importKey('jwk', jwk, importAlgorithm, false, ['verify']);
 
     const verifyAlgorithm = getVerifyAlgorithm(jwk);
-    return webcrypto.subtle.verify(verifyAlgorithm, publicKey, signature, signedData);
+    const preparedSignature = prepareSignature(jwk, signature);
+    return webcrypto.subtle.verify(verifyAlgorithm, publicKey, preparedSignature, signedData);
 }
 
 export async function handleSignIn(bodyString: string, sessionId: string) {
@@ -71,7 +136,7 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
     console.log('Retrieved passkey data', passkey);
     assert(passkey.userId.equals(body.userHandle));
 
-    const clientData = JSON.parse(body.clientDataJSON);
+    const clientData = JSON.parse(body.clientDataJSON.toString('utf8'));
 
     const expectedChallenge = await database.getChallenge(sessionId);
     assert(expectedChallenge !== undefined);
@@ -88,7 +153,7 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
     // Don't care about backup eligibility or state beyond basic validation.
     // Don't care about client extensions.
 
-    const hash = await sha256(Buffer.from(body.clientDataJSON, 'utf-8'));
+    const hash = await sha256(body.clientDataJSON);
     const signedData = Buffer.concat([body.authenticatorData, Buffer.from(hash)]);
 
     const isValid = await verify(passkey.publicKey, body.signature, signedData);
