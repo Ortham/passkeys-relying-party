@@ -9,7 +9,7 @@ import { RP_ID_HASH } from '../lib/config.js';
 import { decode } from 'cbor-x/decode';
 import { AuthData, ClientData, FLAG_BACKUP_ELIGIBILITY, FLAG_BACKUP_STATE, FLAG_USER_VERIFIED, parseAuthData, validateAuthData, validateClientData } from '../lib/webauthn.js';
 
-interface SignUpBody {
+interface RequestBody {
     userId: Buffer;
     username: string;
     displayName: string;
@@ -50,7 +50,7 @@ function validateAttestationObject(attestationObject: AttestationObject, expecte
     validateAuthData(attestationObject, expectedRpIdHash, true);
 }
 
-function parseSignUpBody(body: string): SignUpBody {
+function parseSignUpBody(body: string): RequestBody {
     const parameters = new URLSearchParams(body);
 
     const username = parameters.get('username');
@@ -76,29 +76,29 @@ function parseSignUpBody(body: string): SignUpBody {
     };
 }
 
-function createUser(signUpBody: SignUpBody): User {
+function createUserObject(requestBody: RequestBody): User {
     return {
-        id: signUpBody.userId,
-        name: signUpBody.username,
-        displayName: signUpBody.displayName
+        id: requestBody.userId,
+        name: requestBody.username,
+        displayName: requestBody.displayName
     };
 }
 
-function createPasskey(signUpBody: SignUpBody, publicKey: JsonWebKey): PasskeyData {
+function createPasskeyObject(requestBody: RequestBody, publicKey: JsonWebKey): PasskeyData {
     return {
         type: 'public-key',
-        credentialId: signUpBody.passkey.attestationObject.credentialId!,
-        userId: signUpBody.userId,
+        credentialId: requestBody.passkey.attestationObject.credentialId!,
+        userId: requestBody.userId,
         publicKey,
-        signCount: signUpBody.passkey.attestationObject.signCount,
-        uvInitialized: isBitFlagSet(signUpBody.passkey.attestationObject.flags, FLAG_USER_VERIFIED),
-        transports: signUpBody.passkey.transports,
-        backupEligible: isBitFlagSet(signUpBody.passkey.attestationObject.flags, FLAG_BACKUP_ELIGIBILITY),
-        backupState: isBitFlagSet(signUpBody.passkey.attestationObject.flags, FLAG_BACKUP_STATE)
+        signCount: requestBody.passkey.attestationObject.signCount,
+        uvInitialized: isBitFlagSet(requestBody.passkey.attestationObject.flags, FLAG_USER_VERIFIED),
+        transports: requestBody.passkey.transports,
+        backupEligible: isBitFlagSet(requestBody.passkey.attestationObject.flags, FLAG_BACKUP_ELIGIBILITY),
+        backupState: isBitFlagSet(requestBody.passkey.attestationObject.flags, FLAG_BACKUP_STATE)
     };
 }
 
-export async function handleSignUp(bodyString: string, sessionId: string) {
+export async function createUser(bodyString: string, sessionId: string) {
     const body = parseSignUpBody(bodyString);
     console.log('Request body is', body);
 
@@ -117,8 +117,8 @@ export async function handleSignUp(bodyString: string, sessionId: string) {
 
     const jwk = coseToJwk(body.passkey.attestationObject.credentialPublicKey);
 
-    const user = createUser(body);
-    const passkey = createPasskey(body, jwk);
+    const user = createUserObject(body);
+    const passkey = createPasskeyObject(body, jwk);
 
     await Promise.all([database.insertUser(user), database.insertPasskey(passkey)]);
     console.log('Stored user', user, 'and passkey', passkey);
@@ -132,7 +132,7 @@ export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _conte
     const sessionId = getSessionId(event.headers);
     assert(sessionId !== undefined);
 
-    await handleSignUp(event.body, sessionId);
+    await createUser(event.body, sessionId);
 
     const response = {
         statusCode: 302,

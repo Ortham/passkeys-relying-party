@@ -4,7 +4,7 @@ import { IncomingMessage, ServerResponse } from 'node:http';
 import assert from 'node:assert';
 import { createNewUserId } from '../handlers/getNewUserId.js';
 import { createChallenge, getOrCreateSession, getProfile, logout } from './session.js';
-import { handleSignUp } from '../handlers/signUp.js';
+import { createUser } from '../handlers/createUser.js';
 import { handleSignIn } from '../handlers/signIn.js';
 
 async function serveFile(res: ServerResponse, filePath: string, contentType: string) {
@@ -82,7 +82,7 @@ async function handleSignUpSubmit(req: IncomingMessage, res: ServerResponse, ses
     // https://w3c.github.io/webauthn/#sctn-registering-a-new-credential
     const body = await readBody(req);
 
-    await handleSignUp(body, sessionId);
+    await createUser(body, sessionId);
 
     res.writeHead(302, { 'Location': '/' });
     res.end();
@@ -140,7 +140,7 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
             res.end();
         }
     } else if (req.method === 'POST') {
-        if (url.pathname === '/api/signUp') {
+        if (url.pathname === '/api/user') {
             await handleSignUpSubmit(req, res, sessionId);
         } else if (url.pathname === '/api/signIn') {
             await handleSignInSubmit(req, res, sessionId);

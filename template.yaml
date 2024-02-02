@@ -81,7 +81,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: backend
-      Handler: signUp.lambdaHandler
+      Handler: createUser.lambdaHandler
       Runtime: nodejs20.x
       Architectures:
         - x86_64
@@ -105,7 +105,7 @@ Resources:
         Api:
           Type: Api
           Properties:
-            Path: /api/signUp
+            Path: /api/user
             Method: POST
             RestApiId:
               Ref: ApiGatewayApi
@@ -113,7 +113,7 @@ Resources:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/signUp.ts
+          - src/handlers/createUser.ts
         Format: cjs
         OutExtension:
           - .js=.cjs
