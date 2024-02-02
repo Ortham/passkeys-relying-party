@@ -1,14 +1,42 @@
-# Passkeys demo
+# Passkeys experiment
 
-This is a toy implementation of a basic sign up and sign in flow using passkeys, which I wrote to help check my understanding of the flows. **It is not safe for production use.** Data is not encrypted in transit, and no doubt there are other security issues too. It's a quick-and-dirty implementation without any effort spent on things like code quality.
+This is a toy implementation of a basic sign up and sign in flow using passkeys, which I wrote to help check my understanding of the flows. **It is not safe for production use.** Data is not encrypted in transit, there are no guards against stored data getting overwritten improperly, and no doubt there are other security issues too. It's a relatively quick-and-dirty implementation without much effort spent on things like code quality, error handling or writing tests.
 
-The repository consists of a Node.js server and associated frontend HTML, CSS and JavaScript. I wanted to implement everything using only standard libraries as much as possible: the only third-party runtime dependency is a Node.js library used to handle decoding CBOR. There's also a dev dependency on TypeScript because adding static types revealed a few bugs.
+The project can be run as a local server, in which case all data is only held in memory (so if something goes wrong the server will probably crash and forget everything), or deployed to AWS. Third-party dependencies are minimal, with libraries only added for decoding CBOR and interacting with DynamoDB, and tooling limited to TypeScript and esbuild.
 
-All data is only held in memory, and there is no error handling, so if something goes wrong the server will probably crash and forget any registered users. There's currently no UI that acknowledges successful login. Attestation is not supported, and client extensions are ignored. Conditional mediation is commented out because it doesn't work properly on Windows 10 with Windows Hello.
+Attestation is not supported, and client extensions are ignored. Conditional mediation is commented out because it doesn't work properly on Windows 10 with Windows Hello.
 
-Tested on Windows 10 22H2 with Windows Hello, Firefox v122 and Node.js v20.11.0. It's also been tested with Deno v1.40.2, and with Bun v1.0.25.
+The local server has been tested with Node.js v20.11.0, Deno v1.40.2 and Bun v1.0.25. The AWS deployment has been tested with the following clients:
 
-Unfortunately, because the user IDs are randomly generated, every time you sign up you create a new passkey in Windows Hello, and Windows 10 does not provide a practical UI for managing passkeys. The best way to clear out credentials on Windows 10 is therefore to turn Windows Hello off and on again. It's also not possible to restrict Windows Hello to just managing passkeys, so enabling Windows Hello means it becomes an option for logging into your Windows account.
+- Firefox v122 on Windows 10 22H2 with Windows Hello
+- Firefox v122 on Windows 10 22H2 with Dashlane
+- Edge v121 on Windows 10 22H2 with Windows Hello
+- Chrome v121 on Android 14 with Google Credential Manager
+- Chrome v121 on macOS 14.2.1 using Chrome's profile
+- Chrome v121 on macOS 14.2.1 using 1Password
+- Chrome v121 on macOS 14.2.1 using iCloud Keychain
+- Safari v17.2.1 on macOS 14.2.1 using iCloud Keychain
+
+Unfortunately, Windows Hello on Windows 10 does not provide a practical UI for managing passkeys. The best way to clear out credentials is therefore to turn Windows Hello off and on again. It's also not possible to restrict Windows Hello to just managing passkeys, so enabling Windows Hello means it becomes an option for logging into your Windows account.
+
+Limitations:
+
+- Only supports ES256 and RS256 signing algorithms
+- Does not support attestation or client extensions
+- Conditional mediation is commented out because it doesn't work properly on Windows 10 with Windows Hello (and is untested on other platforms).
+- There's no UI that acknowledges successful sign in, sign up or logout
+- There's no way to add or remove passkeys from an account once you've signed up
+
+Things that caught me by surprise:
+
+- localhost counts as a secure context (last time it was relevant to me I think browsers were still inconsistent about what was allowed on localhost).
+- Conditional mediation not working on Windows 10 with Windows Hello - I think that's because the APIs that support it were only added to Windows 11.
+- Although [AuthenticatorAttestationResponse.getPublicKey()](https://www.w3.org/TR/webauthn-3/#dom-authenticatorattestationresponse-getpublickey) is implemented in Firefox, its return value is invalid according to SubtleCrypto.importKey(). The same function's return value is fine in Edge. `getPublicKey()` not working as expected meant that I needed to parse the attestationObject and pull in the CBOR library dependency to help with that.
+- ES256 signatures are encoded using DER and need to be decoded before verification
+- The generation of user IDs is a bit awkward for new users without any other credentials, as it needs to be done before the user is prompted to create a passkey, but you don't want to persist any user data before they've got a credential to persist, otherwise they have no way of managing or proving ownership of that data, so you've got to generate an ID and hope it's still unique when it's written, which could cause trouble with cache-unfriendly IDs.
+
+
+## Running locally
 
 To get set up with Node.js installed, run:
 
@@ -37,11 +65,11 @@ bun run src/index.ts
 
 Then navigate to `http://localhost:8080` in your web browser.
 
-## AWS
+## Deploying to AWS
 
 The AWS stack is deployed using SAM and involves the use of API Gateway, Lambda, DynamoDB, S3, Certificate Manager and CloudFront. A custom domain is also used.
 
-The SAM template has a single parameter `SiteDomainName`, which is the custom domain name to use. Certificate Manager is configured to use DNS validation for that domain name, and that requires adding a CNAME DNS record for the domain. The deployment will be blocked until that record is seen by Certificate Manager, and the name and value of the record can only be obtained from Certificate Manager after the certificate has been created. However, the record's name and value aren't unique to that certificate, so you can manually create a certificate for the same domain name to get the details and so create the necessary DNS record before deployment.
+The SAM template has a single parameter `SiteDomainName`, which is the custom domain name to use. Certificate Manager is configured to use DNS validation for that domain name, and that requires adding a CNAME DNS record for the domain. The deployment will be blocked until that record is seen by Certificate Manager, and the name and value of the record can only be obtained from Certificate Manager after the certificate has been created. However, the record's name and value aren't unique to that certificate, so you can manually create a certificate in Certificate Manager for the same domain name to get the details and so create the necessary DNS record before deployment.
 
 To use CloudFront with Certificate Manager, the certificate needs to be requested for the us-east-1 region.
 
