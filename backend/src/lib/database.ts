@@ -1,7 +1,7 @@
 import { env } from 'node:process';
 import { Buffer } from 'node:buffer';
 import { DynamoDBClient, ReturnValue } from '@aws-sdk/client-dynamodb';
-import { DeleteCommand, DynamoDBDocumentClient, GetCommand, GetCommandInput, PutCommand, PutCommandInput, UpdateCommand, UpdateCommandInput } from '@aws-sdk/lib-dynamodb';
+import { BatchWriteCommand, BatchWriteCommandInput, DeleteCommand, DeleteCommandInput, DynamoDBDocumentClient, GetCommand, GetCommandInput, PutCommand, PutCommandInput, UpdateCommand, UpdateCommandInput } from '@aws-sdk/lib-dynamodb';
 
 const ENDPOINT_OVERRIDE = env['ENDPOINT_OVERRIDE'];
 const USERS_TABLE_NAME = env['USERS_TABLE_NAME'];
@@ -47,6 +47,9 @@ interface Database {
     getChallenge(sessionId: string): Promise<Buffer | undefined>;
 
     getUserBySessionId(sessionId: string): Promise<User | undefined>;
+
+    // Deletes the user associated with the given session ID, and all their sessions and passkeys.
+    deleteUserBySessionId(sessionId: string): Promise<void>;
 
     deleteSession(sessionId: string): Promise<void>;
 
@@ -142,6 +145,23 @@ class InProcessDatabase implements Database {
         return this.users.get(userId);
     }
 
+    async deleteUserBySessionId(sessionId: string) {
+        const user = await this.getUserBySessionId(sessionId);
+        if (!user) {
+            return;
+        }
+
+        for (const id of user.sessions) {
+            this.sessions.delete(id);
+        }
+
+        for (const id of user.passkeys) {
+            this.passkeys.delete(id.toString('base64'));
+        }
+
+        this.users.delete(user.id.toString('base64'));
+    }
+
     async deleteSession(sessionId: string) {
         const session = this.sessions.get(sessionId);
 
@@ -189,6 +209,23 @@ class InProcessDatabase implements Database {
     }
 }
 
+
+function idsToDeleteRequests(
+    ids: Set<Buffer | string>,
+    keyMapper: (id: Buffer | string) => Record<string, Buffer | string>
+) {
+    const items = [];
+    for (const id of ids.values()) {
+        items.push({
+            DeleteRequest: {
+                Key: keyMapper(id)
+            }
+        });
+    }
+
+    return items;
+}
+
 class DynamoDbDatabase implements Database {
     private ddbDocClient: DynamoDBDocumentClient;
 
@@ -200,9 +237,17 @@ class DynamoDbDatabase implements Database {
     }
 
     async insertUser(user: User) {
+        const item: Omit<User, 'passkeys' | 'sessions'> & Partial<User> = Object.assign({}, user);
+        if (user.passkeys.size === 0) {
+            delete item.passkeys;
+        }
+        if (user.sessions.size === 0) {
+            delete item.sessions;
+        }
+
         const params = {
             TableName: USERS_TABLE_NAME,
-            Item: user
+            Item: item
         };
 
         await this.put(params);
@@ -297,20 +342,15 @@ class DynamoDbDatabase implements Database {
     }
 
     async getUserBySessionId(sessionId: string): Promise<User | undefined> {
-        const sessionParams = {
-            TableName: SESSIONS_TABLE_NAME,
-            Key: {
-                id: sessionId
-            },
-            ProjectionExpression: 'userId'
-        };
-
-        const session = await this.get(sessionParams);
+        const userId = await this.getSessionUserId(sessionId);
+        if (!userId) {
+            return undefined;
+        }
 
         const userParams = {
             TableName: USERS_TABLE_NAME,
             Key: {
-                id: session?.['userId']
+                id: userId
             }
         };
 
@@ -322,6 +362,37 @@ class DynamoDbDatabase implements Database {
         return user as User | undefined;
     }
 
+    async deleteUserBySessionId(sessionId: string) {
+        const userId = await this.getSessionUserId(sessionId);
+        if (!userId) {
+            return;
+        }
+
+        const params = {
+            TableName: USERS_TABLE_NAME,
+            Key: {
+                id: userId
+            },
+            ReturnValues: ReturnValue.ALL_OLD
+        };
+        const attributes = await this.delete(params);
+
+        const passkeyIds: Set<Buffer> = attributes?.['passkeys'] ?? new Set();
+        console.log('Deleting passkeys with IDs', passkeyIds);
+
+        const sessionIds = attributes?.['sessions'] ?? new Set();
+        console.log('Deleting sessions with IDs', sessionIds);
+
+        const batchDeleteParams: BatchWriteCommandInput = {
+            RequestItems: {
+                [PASSKEYS_TABLE_NAME!]: idsToDeleteRequests(passkeyIds, id => ({ credentialId: id })),
+                [SESSIONS_TABLE_NAME!]: idsToDeleteRequests(sessionIds, id => ({ id })),
+            }
+        }
+
+        await this.batchDelete(batchDeleteParams);
+    }
+
     async deleteSession(sessionId: string): Promise<void> {
         const params = {
             TableName: SESSIONS_TABLE_NAME,
@@ -331,16 +402,8 @@ class DynamoDbDatabase implements Database {
             ReturnValues: ReturnValue.ALL_OLD
         };
 
-        let userId;
-        try {
-            const data = await this.ddbDocClient.send(new DeleteCommand(params));
-            console.log("Success - item deleted", data);
-
-            userId = data.Attributes?.['userId'];
-        } catch (err) {
-            console.error("Error deleting item:", err);
-            throw err;
-        }
+        const attributes = await this.delete(params);
+        const userId = attributes?.['userId'];
 
         if (!userId) {
             return;
@@ -446,6 +509,39 @@ class DynamoDbDatabase implements Database {
             return result.Item;
         } catch (err) {
             console.error("Error getting item:", err);
+            throw err;
+        }
+    }
+
+    private async getSessionUserId(sessionId: string): Promise<Buffer | undefined> {
+        const sessionParams = {
+            TableName: SESSIONS_TABLE_NAME,
+            Key: {
+                id: sessionId
+            },
+            ProjectionExpression: 'userId'
+        };
+
+        const result = await this.get(sessionParams);
+
+        return result?.['userId'];
+    }
+
+    private async delete(params: DeleteCommandInput) {
+        try {
+            const result = await this.ddbDocClient.send(new DeleteCommand(params));
+            return result.Attributes;
+        } catch (err) {
+            console.error("Error deleting item:", err);
+            throw err;
+        }
+    }
+
+    private async batchDelete(params: BatchWriteCommandInput) {
+        try {
+            await this.ddbDocClient.send(new BatchWriteCommand(params));
+        } catch (err) {
+            console.error("Error batch-deleting items:", err);
             throw err;
         }
     }

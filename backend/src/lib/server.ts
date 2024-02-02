@@ -6,6 +6,7 @@ import { createNewUserId } from '../handlers/getNewUserId.js';
 import { createChallenge, getOrCreateSession, getProfile, logout } from './session.js';
 import { createUser } from '../handlers/createUser.js';
 import { handleSignIn } from '../handlers/signIn.js';
+import { deleteUser } from '../handlers/deleteUser.js';
 
 async function serveFile(res: ServerResponse, filePath: string, contentType: string) {
     const file = await readFile('../frontend/public/' + filePath);
@@ -104,6 +105,16 @@ async function handleSignInSubmit(req: IncomingMessage, res: ServerResponse, ses
     }
 }
 
+async function handleDeleteUser(res: ServerResponse, sessionId: string) {
+    const responseHeaders = await deleteUser(sessionId);
+
+    res.writeHead(302, {
+        ...responseHeaders,
+        'Location': '/'
+    });
+    res.end();
+}
+
 export async function requestListener(req: IncomingMessage, res: ServerResponse) {
     const HTML = 'text/html';
     const CSS = 'text/css';
@@ -144,6 +155,13 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
             await handleSignUpSubmit(req, res, sessionId);
         } else if (url.pathname === '/api/signIn') {
             await handleSignInSubmit(req, res, sessionId);
+        } else {
+            res.writeHead(404);
+            res.end();
+        }
+    } else if (req.method === 'DELETE') {
+        if (url.pathname === '/api/user') {
+            await handleDeleteUser(res, sessionId);
         } else {
             res.writeHead(404);
             res.end();
