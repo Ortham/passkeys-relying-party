@@ -24,6 +24,7 @@ export interface User {
     id: Buffer;
     name: string;
     displayName: string;
+    passkeys: Set<Buffer>;
 }
 
 interface Session {
@@ -127,6 +128,13 @@ class InProcessDatabase implements Database {
 
     async insertPasskey(passkey: PasskeyData) {
         this.passkeys.set(passkey.credentialId.toString('base64'), passkey);
+
+        const user = this.users.get(passkey.userId.toString('base64'));
+        if (!user) {
+            throw new Error(`User with ID ${passkey.userId} is undefined`);
+        }
+
+        user.passkeys.add(passkey.credentialId);
     };
 
     async passkeyExists(credentialId: Buffer) {
@@ -284,12 +292,25 @@ class DynamoDbDatabase implements Database {
     }
 
     async insertPasskey(passkey: PasskeyData): Promise<void> {
-        const params = {
+        const passkeyParams = {
             TableName: PASSKEYS_TABLE_NAME,
             Item: passkey
         };
 
-        await this.put(params);
+        await this.put(passkeyParams);
+
+        const userParams = {
+            TableName: USERS_TABLE_NAME,
+            Key: {
+                id: passkey.userId
+            },
+            UpdateExpression: "ADD passkeys :passkeyId",
+            ExpressionAttributeValues: {
+                ":passkeyId": new Set([passkey.credentialId])
+            }
+        }
+
+        await this.update(userParams);
     }
 
     async passkeyExists(credentialId: Buffer): Promise<boolean> {

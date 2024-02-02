@@ -80,7 +80,8 @@ function createUserObject(requestBody: RequestBody): User {
     return {
         id: requestBody.userId,
         name: requestBody.username,
-        displayName: requestBody.displayName
+        displayName: requestBody.displayName,
+        passkeys: new Set()
     };
 }
 
@@ -120,7 +121,9 @@ export async function createUser(bodyString: string, sessionId: string) {
     const user = createUserObject(body);
     const passkey = createPasskeyObject(body, jwk);
 
-    await Promise.all([database.insertUser(user), database.insertPasskey(passkey)]);
+    // Store the user first because storing the passkey also updates the user data with the passkey's ID.
+    await database.insertUser(user);
+    await database.insertPasskey(passkey);
     console.log('Stored user', user, 'and passkey', passkey);
 
     await database.updateSessionUserId(sessionId, user.id);
