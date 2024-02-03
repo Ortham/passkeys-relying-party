@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { Buffer } from 'node:buffer';
 import { getSessionId } from '../lib/session.js';
 import { CoseKey, coseToJwk } from '../lib/cose.js';
-import { isBitFlagSet } from '../lib/util.js';
+import { getCurrentTimestamp, isBitFlagSet } from '../lib/util.js';
 import { PasskeyData, User, database } from '../lib/database.js';
 import { RP_ID_HASH } from '../lib/config.js';
 import { decode } from 'cbor-x/decode';
@@ -96,7 +96,9 @@ function createPasskeyObject(requestBody: RequestBody, publicKey: JsonWebKey): P
         uvInitialized: isBitFlagSet(requestBody.passkey.attestationObject.flags, FLAG_USER_VERIFIED),
         transports: requestBody.passkey.transports,
         backupEligible: isBitFlagSet(requestBody.passkey.attestationObject.flags, FLAG_BACKUP_ELIGIBILITY),
-        backupState: isBitFlagSet(requestBody.passkey.attestationObject.flags, FLAG_BACKUP_STATE)
+        backupState: isBitFlagSet(requestBody.passkey.attestationObject.flags, FLAG_BACKUP_STATE),
+        description: 'Added during account creation',
+        createdTimestamp: getCurrentTimestamp()
     };
 }
 

@@ -49,3 +49,7 @@ export function getCookies(requestHeaders: Record<string, string | string[] | un
 
     return new Map();
 }
+
+export function getCurrentTimestamp() {
+    return Math.floor(Date.now() / 1000);
+}

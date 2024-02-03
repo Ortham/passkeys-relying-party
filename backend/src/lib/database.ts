@@ -2,6 +2,7 @@ import { env } from 'node:process';
 import { Buffer } from 'node:buffer';
 import { DynamoDBClient, ReturnValue } from '@aws-sdk/client-dynamodb';
 import { BatchWriteCommand, BatchWriteCommandInput, DeleteCommand, DeleteCommandInput, DynamoDBDocumentClient, GetCommand, GetCommandInput, PutCommand, PutCommandInput, UpdateCommand, UpdateCommandInput } from '@aws-sdk/lib-dynamodb';
+import { getCurrentTimestamp } from './util.js';
 
 const ENDPOINT_OVERRIDE = env['ENDPOINT_OVERRIDE'];
 const USERS_TABLE_NAME = env['USERS_TABLE_NAME'];
@@ -18,6 +19,9 @@ export interface PasskeyData {
     transports: string[];
     backupEligible: boolean;
     publicKey: JsonWebKey;
+    description: string;
+    createdTimestamp: number;
+    lastUsedTimestamp?: number;
 }
 
 export interface User {
@@ -64,12 +68,11 @@ interface Database {
 }
 
 function hasSessionExpired(session: Session) {
-    return session.ttl <= Math.floor(Date.now() / 1000);
+    return session.ttl <= getCurrentTimestamp();
 }
 
 function getExpiryTimestamp() {
-    const now = Math.floor(Date.now() / 1000);
-    return now + 86400 * 3; // The session will expire 3 days from now.
+    return getCurrentTimestamp() + 86400 * 3; // The session will expire 3 days from now.
 }
 
 class InProcessDatabase implements Database {
@@ -219,6 +222,7 @@ class InProcessDatabase implements Database {
 
         passkey.signCount = signCount;
         passkey.backupState = backupState;
+        passkey.lastUsedTimestamp = getCurrentTimestamp();
     }
 }
 
@@ -490,10 +494,11 @@ class DynamoDbDatabase implements Database {
             Key: {
                 credentialId
             },
-            UpdateExpression: "set signCount = :s, backupState = :b",
+            UpdateExpression: "set signCount = :s, backupState = :b, lastUsedTimestamp = :l",
             ExpressionAttributeValues: {
                 ":s": signCount,
-                ":b": backupState
+                ":b": backupState,
+                ":l": getCurrentTimestamp()
             }
         }
 

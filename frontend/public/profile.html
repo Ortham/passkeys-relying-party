@@ -7,24 +7,68 @@
     </head>
     <body>
         <div id="profile">
+            <h2>Account details</h2>
             <p>Username: <span id="username"></span></p>
             <p>Display name: <span id="displayName"></span></p>
+            <h2>Registered passkeys</h2>
+            <ul id="passkeys"></ul>
         </div>
         <p id="errorText"></p>
     </body>
     <script type="module">
+        async function handleErrorResponse(response) {
+            if (response.status === 401) {
+                document.getElementById('profile').hidden = true;
+                document.getElementById('errorText').textContent = 'You are not logged in!';
+            } else {
+                document.getElementById('profile').hidden = true;
+                document.getElementById('errorText').textContent = 'Error fetching profile data: ' + await response.text();
+            }
+        }
+
+        function formatTimestamp(timestamp) {
+            return new Intl.DateTimeFormat(undefined, {
+                dateStyle: 'long',
+                timeStyle: 'long'
+            }).format(new Date(timestamp * 1000));
+        }
+
+        async function getPasskeys() {
+            const response = await fetch('/api/passkeys');
+            if (response.ok) {
+                const json = await response.json();
+
+                const passkeysList = document.getElementById('passkeys');
+                while (passkeysList.firstElementChild !== null) {
+                    passkeysList.removeChild(passkeysList.firstElementChild);
+                }
+
+                for (const passkey of json) {
+                    const listItem = document.createElement('li');
+
+                    const lastUsedHTML = passkey.lastUsedTimestamp
+                        ? `<p>Last used at: ${formatTimestamp(passkey.lastUsedTimestamp)}</p>`
+                        : '<p>Never used</p>';
+
+                    listItem.innerHTML = `<p>${passkey.description}</p><p>Created at: ${formatTimestamp(passkey.createdTimestamp)}</p>${lastUsedHTML}`;
+
+                    passkeysList.appendChild(listItem);
+                }
+            } else {
+                handleErrorResponse(response);
+            }
+        }
+
         async function getProfile() {
             const response = await fetch('/api/profile');
             if (response.ok) {
                 const json = await response.json();
                 document.getElementById('username').textContent = json.username;
                 document.getElementById('displayName').textContent = json.displayName;
-            } else if (response.status === 401) {
-                document.getElementById('profile').hidden = true;
-                document.getElementById('errorText').textContent = 'You are not logged in!';
+
+                await getPasskeys();
             } else {
-                document.getElementById('profile').hidden = true;
-                document.getElementById('errorText').textContent = 'Error fetching profile data: ' + await response.text();
+                handleErrorResponse(response);
             }
         }
 

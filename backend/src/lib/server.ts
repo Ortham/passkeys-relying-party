@@ -7,6 +7,7 @@ import { createChallenge, getOrCreateSession, getProfile, logout } from './sessi
 import { createUser } from '../handlers/createUser.js';
 import { handleSignIn } from '../handlers/signIn.js';
 import { deleteUser } from '../handlers/deleteUser.js';
+import { getPasskeys } from '../handlers/getPasskeys.js';
 
 async function serveFile(res: ServerResponse, filePath: string, contentType: string) {
     const file = await readFile('../frontend/public/' + filePath);
@@ -73,6 +74,18 @@ async function handleGetProfile(res: ServerResponse, sessionId: string) {
     if (profile) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(profile));
+    } else {
+        res.writeHead(401);
+        res.end();
+    }
+}
+
+async function handleGetPasskeys(res: ServerResponse, sessionId: string) {
+    const passkeys = await getPasskeys(sessionId);
+
+    if (passkeys) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(passkeys));
     } else {
         res.writeHead(401);
         res.end();
@@ -146,6 +159,8 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
             await handleLogout(res, sessionId);
         } else if (url.pathname === '/api/profile') {
             await handleGetProfile(res, sessionId);
+        } else if (url.pathname === '/api/passkeys') {
+            await handleGetPasskeys(res, sessionId);
         } else {
             res.writeHead(404);
             res.end();
