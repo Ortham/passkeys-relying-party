@@ -65,6 +65,7 @@ export async function getProfile(sessionId: string) {
     }
 
     return {
+        id: user.id.toString('base64url'),
         username: user.name,
         displayName: user.displayName
     };

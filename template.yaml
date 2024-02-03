@@ -196,6 +196,48 @@ Resources:
           - .js=.cjs
         Target: es2022
 
+  CreatePasskeyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend
+      Handler: createPasskey.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 60
+      Description: Create a new passkey for the current user
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PasskeysTable
+      Environment:
+        Variables:
+          SESSIONS_TABLE_NAME: !Ref SessionsTable
+          USERS_TABLE_NAME: !Ref UsersTable
+          PASSKEYS_TABLE_NAME: !Ref PasskeysTable
+          RP_ID: !Ref SiteDomainName
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /api/passkeys
+            Method: POST
+            RestApiId:
+              Ref: ApiGatewayApi
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/createPasskey.ts
+        Format: cjs
+        OutExtension:
+          - .js=.cjs
+        Target: es2022
+
   GetPasskeysFunction:
     Type: AWS::Serverless::Function
     Properties:

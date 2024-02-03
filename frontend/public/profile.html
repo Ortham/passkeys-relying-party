@@ -8,14 +8,22 @@
     <body>
         <div id="profile">
             <h2>Account details</h2>
+            <p hidden>User ID: <span id="userId"></span></p>
             <p>Username: <span id="username"></span></p>
             <p>Display name: <span id="displayName"></span></p>
             <h2>Registered passkeys</h2>
             <ul id="passkeys"></ul>
+            <form>
+                <label for="newPasskeyDescription">New passkey description: </label>
+                <input id="newPasskeyDescription" required />
+                <button type="button" id="addPasskeyButton">Add a passkey</button>
+            </form>
         </div>
         <p id="errorText"></p>
     </body>
     <script type="module">
+        import { generatePasskey } from './browser.js';
+
         async function handleErrorResponse(response) {
             if (response.status === 401) {
                 document.getElementById('profile').hidden = true;
@@ -63,6 +71,7 @@
             const response = await fetch('/api/profile');
             if (response.ok) {
                 const json = await response.json();
+                document.getElementById('userId').textContent = json.id;
                 document.getElementById('username').textContent = json.username;
                 document.getElementById('displayName').textContent = json.displayName;
 
@@ -72,10 +81,38 @@
             }
         }
 
+        async function addPasskey() {
+            const userId = document.getElementById('userId').textContent;
+            const username = document.getElementById('username').textContent;
+            const displayName = document.getElementById('displayName').textContent
+
+            const passkey = await generatePasskey(userId, username, displayName);
+
+            const response = await fetch('/api/passkeys', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    description: document.getElementById('newPasskeyDescription').value,
+                    ...passkey
+                })
+            });
+
+            if (!response.ok) {
+                document.getElementById('errorText').textContent = 'Error adding passkey: ' + await response.text();
+                return;
+            }
+
+            await getPasskeys();
+        }
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', getProfile);
         } else {
             getProfile();
         }
+
+        document.getElementById('addPasskeyButton').addEventListener('click', addPasskey);
     </script>
 </html>

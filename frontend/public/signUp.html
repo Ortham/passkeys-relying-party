@@ -17,12 +17,7 @@
         </form>
     </body>
     <script type="module">
-        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported } from './browser.js';
-
-        const RP_NAME = 'Passkeys Demo';
-
-        const WEBAUTHN_ALG_ES256 = -7;
-        const WEBAUTHN_ALG_RS256 = -257;
+        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, generatePasskey } from './browser.js';
 
         async function getNewUserId() {
             const response = await fetch('/api/newUserId');
@@ -31,48 +26,13 @@
         }
 
         async function onSignUp() {
-            const [challenge, newUserId] = await Promise.all([getChallenge(), getNewUserId()]);
+            const newUserId = await getNewUserId();
+            const username = document.getElementById('username').value;
+            const displayName = document.getElementById('displayName').value
 
-            const passkeyCreationOptions = {
-                challenge,
-                rp: {
-                    name: RP_NAME
-                },
-                user: {
-                    id: toArrayBuffer(newUserId),
-                    name: document.getElementById('username').value,
-                    displayName: document.getElementById('displayName').value
-                },
-                pubKeyCredParams: [
-                    { alg: WEBAUTHN_ALG_ES256, type: 'public-key' },
-                    { alg: WEBAUTHN_ALG_RS256, type: 'public-key' }
-                ],
-                excludeCredentials: [],
-                authenticatorSelection: {
-                    requireResidentKey: true,
-                    userVerification: 'required'
-                }
-            };
+            const passkey = await generatePasskey(newUserId, username, displayName)
 
-            const credential = await navigator.credentials.create({
-                publicKey: passkeyCreationOptions
-            });
-
-            console.log('Got credential:', credential);
-
-            const clientDataJSON = new TextDecoder('utf-8').decode(credential.response.clientDataJSON);
-            const clientData = JSON.parse(clientDataJSON);
-
-            const passkeyData = {
-                userId: newUserId,
-                clientData,
-                // Firefox returns nonsense for getPublicKey(), so we can't avoid parsing the attestationObject server-side...
-                attestationObject: toBase64(credential.response.attestationObject),
-                transports: credential.response.getTransports()
-            };
-            console.log('Passkey data is', passkeyData);
-
-            document.getElementById('passkeyInput').value = JSON.stringify(passkeyData);
+            document.getElementById('passkeyInput').value = JSON.stringify(passkey);
 
             document.getElementById('signUpForm').submit();
         }
