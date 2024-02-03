@@ -11,7 +11,7 @@ export async function getPasskeys(sessionId: string) {
 
     const promises = [];
     for (const id of user.passkeys.values()) {
-        promises.push(database.getPasskeyData(id));
+        promises.push(database.getPasskeyData(Buffer.from(id, 'base64')));
     }
 
     const passkeys = await Promise.all(promises);

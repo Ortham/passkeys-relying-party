@@ -24,6 +24,8 @@
     <script type="module">
         import { generatePasskey } from './browser.js';
 
+        const CREDENTIAL_ID_ATTRIBUTE_NAME = 'data-credential-id';
+
         async function handleErrorResponse(response) {
             if (response.status === 401) {
                 document.getElementById('profile').hidden = true;
@@ -39,6 +41,19 @@
                 dateStyle: 'long',
                 timeStyle: 'long'
             }).format(new Date(timestamp * 1000));
+        }
+
+        async function deletePasskey(evt) {
+            const credentialId = evt.target.getAttribute(CREDENTIAL_ID_ATTRIBUTE_NAME);
+
+            const response = await fetch(`/api/passkeys/${credentialId}`, { method: 'DELETE' });
+
+            if (!response.ok) {
+                document.getElementById('errorText').textContent = 'Error deleting passkey: ' + await response.text();
+                return;
+            }
+
+            await getPasskeys();
         }
 
         async function getPasskeys() {
@@ -59,6 +74,16 @@
                         : '<p>Never used</p>';
 
                     listItem.innerHTML = `<p>${passkey.description}</p><p>Created at: ${formatTimestamp(passkey.createdTimestamp)}</p>${lastUsedHTML}`;
+
+                    // Don't allow deletion of the only passkey a user has.
+                    if (json.length > 1) {
+                        const button = document.createElement('button');
+                        button.textContent = 'Delete passkey';
+                        button.setAttribute(CREDENTIAL_ID_ATTRIBUTE_NAME, passkey.id)
+                        button.addEventListener('click', deletePasskey);
+
+                        listItem.appendChild(button);
+                    }
 
                     passkeysList.appendChild(listItem);
                 }

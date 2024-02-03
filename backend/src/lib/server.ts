@@ -9,6 +9,7 @@ import { handleSignIn } from '../handlers/signIn.js';
 import { deleteUser } from '../handlers/deleteUser.js';
 import { getPasskeys } from '../handlers/getPasskeys.js';
 import { createPasskey } from '../handlers/createPasskey.js';
+import { deletePasskey } from '../handlers/deletePasskey.js';
 
 async function serveFile(res: ServerResponse, filePath: string, contentType: string) {
     const file = await readFile('../frontend/public/' + filePath);
@@ -141,6 +142,13 @@ async function handleDeleteUser(res: ServerResponse, sessionId: string) {
     res.end();
 }
 
+async function handleDeletePasskey(res: ServerResponse, sessionId: string, passkeyId: string) {
+    await deletePasskey(sessionId, passkeyId);
+
+    res.writeHead(204);
+    res.end();
+}
+
 export async function requestListener(req: IncomingMessage, res: ServerResponse) {
     const HTML = 'text/html';
     const CSS = 'text/css';
@@ -192,6 +200,10 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
     } else if (req.method === 'DELETE') {
         if (url.pathname === '/api/user') {
             await handleDeleteUser(res, sessionId);
+        } else if (url.pathname.startsWith('/api/passkeys/')) {
+            const passkeyId = url.pathname.split('/').at(-1);
+            assert(passkeyId !== undefined && passkeyId.length > 0);
+            await handleDeletePasskey(res, sessionId, passkeyId);
         } else {
             res.writeHead(404);
             res.end();

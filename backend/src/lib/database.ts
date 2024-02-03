@@ -28,7 +28,7 @@ export interface User {
     id: Buffer;
     name: string;
     displayName: string;
-    passkeys: Set<Buffer>;
+    passkeys: Set<string>;
     sessions: Set<string>;
 }
 
@@ -59,6 +59,8 @@ interface Database {
     deleteSession(sessionId: string): Promise<void>;
 
     insertPasskey(passkey: PasskeyData): Promise<void>;
+
+    deletePasskey(credentialId: Buffer): Promise<void>;
 
     passkeyExists(credentialId: Buffer): Promise<boolean>;
 
@@ -172,7 +174,7 @@ class InProcessDatabase implements Database {
         }
 
         for (const id of user.passkeys) {
-            this.passkeys.delete(id.toString('base64'));
+            this.passkeys.delete(id);
         }
 
         this.users.delete(user.id.toString('base64'));
@@ -191,15 +193,32 @@ class InProcessDatabase implements Database {
     }
 
     async insertPasskey(passkey: PasskeyData) {
-        this.passkeys.set(passkey.credentialId.toString('base64'), passkey);
+        const key = passkey.credentialId.toString('base64');
+
+        this.passkeys.set(key, passkey);
 
         const user = this.users.get(passkey.userId.toString('base64'));
         if (!user) {
             throw new Error(`User with ID ${passkey.userId} is undefined`);
         }
 
-        user.passkeys.add(passkey.credentialId);
+        user.passkeys.add(key);
     };
+
+    async deletePasskey(credentialId: Buffer): Promise<void> {
+        const key = credentialId.toString('base64');
+        const passkey = this.passkeys.get(key);
+        if (!passkey) {
+            return;
+        }
+
+        const user = this.users.get(passkey.userId.toString('base64'));
+        if (user) {
+            user.passkeys.delete(key);
+        }
+
+        this.passkeys.delete(key);
+    }
 
     async passkeyExists(credentialId: Buffer) {
         return this.passkeys.has(credentialId.toString('base64'));
@@ -254,12 +273,25 @@ class DynamoDbDatabase implements Database {
     }
 
     async insertUser(user: User) {
-        const item: Omit<User, 'passkeys' | 'sessions'> & Partial<User> = Object.assign({}, user);
-        if (user.passkeys.size === 0) {
-            delete item.passkeys;
+        type DbUser = Omit<User, 'passkeys' | 'sessions'> & Partial<Pick<User, 'sessions'>> & { passkeys?: Set<Buffer> };
+
+        const item: DbUser = {
+            id: user.id,
+            name: user.name,
+            displayName: user.displayName
+        };
+
+        // DynamoDB doesn't allow storing empty sets by default.
+        if (user.passkeys.size > 0) {
+            // The passkeys set is a set of base64 strings in JavaScript but should be stored as a set of binary values in DynamoDB.
+            item.passkeys = new Set<Buffer>();
+            for (const id of user.passkeys.values()) {
+                item.passkeys.add(Buffer.from(id, 'base64'));
+            }
         }
-        if (user.sessions.size === 0) {
-            delete item.sessions;
+
+        if (user.sessions.size > 0) {
+            item.sessions = user.sessions;
         }
 
         const params = {
@@ -381,7 +413,23 @@ class DynamoDbDatabase implements Database {
         if (user !== undefined) {
             // user.id is deserialised as a Uint8Array.
             user['id'] = Buffer.from(user['id']);
+
+            if (user['passkeys'] === undefined) {
+                user['passkeys'] = new Set();
+            } else {
+                // The passkeys set should be turned into a set of strings.
+                const passkeys = new Set();
+                for (const id of user['passkeys']) {
+                    passkeys.add(Buffer.from(id).toString('base64'));
+                }
+                user['passkeys'] = passkeys;
+            }
+
+            if (user['sessions'] === undefined) {
+                user['sessions'] = new Set();
+            }
         }
+
         return user as User | undefined;
     }
 
@@ -452,6 +500,36 @@ class DynamoDbDatabase implements Database {
             UpdateExpression: "ADD passkeys :passkeyId",
             ExpressionAttributeValues: {
                 ":passkeyId": new Set([passkey.credentialId])
+            }
+        }
+
+        await this.update(userParams);
+    }
+
+    async deletePasskey(credentialId: Buffer): Promise<void> {
+        const params = {
+            TableName: PASSKEYS_TABLE_NAME,
+            Key: {
+                credentialId
+            },
+            ReturnValues: ReturnValue.ALL_OLD
+        };
+
+        const attributes = await this.delete(params);
+        const userId = attributes?.['userId'];
+
+        if (!userId) {
+            return;
+        }
+
+        const userParams = {
+            TableName: USERS_TABLE_NAME,
+            Key: {
+                id: userId
+            },
+            UpdateExpression: "DELETE passkeys :credentialId",
+            ExpressionAttributeValues: {
+                ":credentialId": new Set([credentialId])
             }
         }
 
