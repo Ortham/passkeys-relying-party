@@ -134,10 +134,13 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref SessionsTable
         - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
             TableName: !Ref PasskeysTable
       Environment:
         Variables:
           SESSIONS_TABLE_NAME: !Ref SessionsTable
+          USERS_TABLE_NAME: !Ref UsersTable
           PASSKEYS_TABLE_NAME: !Ref PasskeysTable
           RP_ID: !Ref SiteDomainName
       Events:
