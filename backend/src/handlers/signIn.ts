@@ -12,7 +12,7 @@ interface SignInBody {
     id: Buffer;
     clientDataJSON: Buffer;
     signature: Buffer;
-    userHandle: Buffer;
+    userHandle: Buffer | undefined;
     authenticatorData: Buffer;
 }
 
@@ -26,8 +26,10 @@ function parseSignInBody(body: string): SignInBody {
         id: Buffer.from(passkey.id, 'base64url'),
         clientDataJSON: Buffer.from(passkey.clientDataJSON, 'base64'),
         signature: Buffer.from(passkey.signature, 'base64'),
-        userHandle: Buffer.from(passkey.userHandle, 'base64'),
-        authenticatorData: Buffer.from(passkey.authenticatorData, 'base64')
+        authenticatorData: Buffer.from(passkey.authenticatorData, 'base64'),
+        userHandle: passkey.userHandle
+            ? Buffer.from(passkey.userHandle, 'base64')
+            : undefined,
     };
 }
 
@@ -131,10 +133,12 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
     const body = parseSignInBody(bodyString);
     console.log('Request body is', body);
 
+    assert(body.userHandle !== undefined);
+
     const passkey = await database.getPasskeyData(body.id);
     assert(passkey !== undefined);
     console.log('Retrieved passkey data', passkey);
-    assert(passkey.userId.equals(body.userHandle));
+    assert(body.userHandle.equals(passkey.userHandle), 'The given user handle does not match the stored user handle for this credential');
 
     const clientData = JSON.parse(body.clientDataJSON.toString('utf8'));
 
@@ -171,7 +175,7 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
         const isBackedUp = isBitFlagSet(authData.flags, FLAG_BACKUP_STATE);
         await database.updatePasskeyState(body.id, authData.signCount, isBackedUp);
 
-        await database.updateSessionUserId(sessionId, body.userHandle);
+        await database.updateSessionUserId(sessionId, passkey.userId);
     } else {
         console.error('Authentication failed!');
     }

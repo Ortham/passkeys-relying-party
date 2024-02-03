@@ -4,7 +4,7 @@ import { decode } from 'cbor-x/decode';
 import { AuthData, ClientData, FLAG_BACKUP_ELIGIBILITY, FLAG_BACKUP_STATE, FLAG_USER_VERIFIED, parseAuthData, validateAuthData, validateClientData } from '../lib/webauthn.js';
 import { CoseKey, coseToJwk } from '../lib/cose.js';
 import { getSessionId } from '../lib/session.js';
-import { PasskeyData, database } from '../lib/database.js';
+import { PasskeyData, User, database } from '../lib/database.js';
 import { RP_ID_HASH } from '../lib/config.js';
 import { getCurrentTimestamp, isBitFlagSet } from '../lib/util.js';
 
@@ -24,7 +24,6 @@ interface ValidatedAttestationObject extends AttestationObject {
 }
 
 export interface RequestBody {
-    userId: Buffer;
     clientData: ClientData;
     attestationObject: AttestationObject;
     transports: string[];
@@ -52,7 +51,6 @@ export function parseRequestBody(body: string): RequestBody {
     const attestationObject = decodeAttestationObject(Buffer.from(passkey.attestationObject, 'base64'));
 
     return {
-        userId: Buffer.from(passkey.userId, 'base64url'),
         clientData: passkey.clientData,
         attestationObject,
         transports: passkey.transports,
@@ -60,11 +58,12 @@ export function parseRequestBody(body: string): RequestBody {
     };
 }
 
-export function createPasskeyObject(requestBody: Omit<RequestBody, 'clientData' | 'description'>, publicKey: JsonWebKey, description: string): PasskeyData {
+export function createPasskeyObject(requestBody: Omit<RequestBody, 'clientData' | 'description'>, user: Pick<User, 'id' | 'userHandle'>, publicKey: JsonWebKey, description: string): PasskeyData {
     return {
         type: 'public-key',
         credentialId: requestBody.attestationObject.credentialId!,
-        userId: requestBody.userId,
+        userId: user.id,
+        userHandle: user.userHandle,
         publicKey,
         signCount: requestBody.attestationObject.signCount,
         uvInitialized: isBitFlagSet(requestBody.attestationObject.flags, FLAG_USER_VERIFIED),
@@ -76,12 +75,8 @@ export function createPasskeyObject(requestBody: Omit<RequestBody, 'clientData' 
     };
 }
 
-export async function validatePasskeyInputs(passkey: Omit<RequestBody, 'description' | 'transports'>, sessionId: string, expectedUserId: Buffer): Promise<JsonWebKey> {
+export async function validatePasskeyInputs(passkey: Omit<RequestBody, 'description' | 'transports'>, sessionId: string): Promise<JsonWebKey> {
     // https://w3c.github.io/webauthn/#sctn-registering-a-new-credential
-
-    // Important to validate this when adding a passkey for an existing user so that they can't add
-    // their passkey to a different user's account.
-    assert(expectedUserId.equals(passkey.userId));
 
     const expectedChallenge = await database.getChallenge(sessionId);
     assert(expectedChallenge !== undefined);
@@ -99,13 +94,13 @@ export async function validatePasskeyInputs(passkey: Omit<RequestBody, 'descript
     return coseToJwk(passkey.attestationObject.credentialPublicKey);
 }
 
-export async function createPasskey(bodyString: string, sessionId: string, expectedUserId: Buffer) {
+export async function createPasskey(bodyString: string, sessionId: string, user: Pick<User, 'id' | 'userHandle'>) {
 
     const body = parseRequestBody(bodyString);
     console.log('Request body is', body);
 
-    const jwk = await validatePasskeyInputs(body, sessionId, expectedUserId);
-    const passkey = createPasskeyObject(body, jwk, body.description);
+    const jwk = await validatePasskeyInputs(body, sessionId);
+    const passkey = createPasskeyObject(body, user, jwk, body.description);
 
     await database.insertPasskey(passkey);
     console.log('Stored passkey', passkey);
@@ -120,7 +115,7 @@ export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _conte
     const user = await database.getUserBySessionId(sessionId);
     assert(user !== undefined);
 
-    await createPasskey(event.body, sessionId, user.id);
+    await createPasskey(event.body, sessionId, user);
 
     const response = {
         statusCode: 200

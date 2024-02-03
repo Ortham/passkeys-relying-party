@@ -13,6 +13,7 @@ export interface PasskeyData {
     type: 'public-key';
     credentialId: Buffer;
     userId: Buffer;
+    userHandle: Buffer; // Store a copy of the user handle to avoid another DB lookup.
     signCount: number;
     backupState: boolean;
     uvInitialized: boolean;
@@ -28,6 +29,7 @@ export interface User {
     id: Buffer;
     name: string;
     displayName: string;
+    userHandle: Buffer; // The user handle/id that is associated with the user's passkeys
     passkeys: Set<string>;
     sessions: Set<string>;
 }
@@ -278,7 +280,8 @@ class DynamoDbDatabase implements Database {
         const item: DbUser = {
             id: user.id,
             name: user.name,
-            displayName: user.displayName
+            displayName: user.displayName,
+            userHandle: user.userHandle
         };
 
         // DynamoDB doesn't allow storing empty sets by default.
@@ -411,8 +414,9 @@ class DynamoDbDatabase implements Database {
 
         const user = await this.get(userParams);
         if (user !== undefined) {
-            // user.id is deserialised as a Uint8Array.
+            // id and userHandle are deserialised as Uint8Arrays.
             user['id'] = Buffer.from(user['id']);
+            user['userHandle'] = Buffer.from(user['userHandle']);
 
             if (user['passkeys'] === undefined) {
                 user['passkeys'] = new Set();
@@ -559,9 +563,10 @@ class DynamoDbDatabase implements Database {
 
         const item = await this.get(params);
         if (item !== undefined) {
-            // item.credentialId and item.userId are deserialised as Uint8Array values.
+            // credentialId, userId and userHandle are deserialised as Uint8Array values.
             item['credentialId'] = Buffer.from(item['credentialId']);
             item['userId'] = Buffer.from(item['userId']);
+            item['userHandle'] = Buffer.from(item['userHandle']);
         }
         return item as PasskeyData | undefined;
     }

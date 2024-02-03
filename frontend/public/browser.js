@@ -40,7 +40,7 @@ export function handlePasskeysNotSupported() {
     document.getElementById('errorText').textContent = 'Sign up is not available because your web browser does not appear to support passkeys!';
 }
 
-export async function generatePasskey(userId, username, userDisplayName) {
+export async function generatePasskey(userHandle, username, userDisplayName) {
     const challenge = await getChallenge();
 
     const passkeyCreationOptions = {
@@ -49,7 +49,7 @@ export async function generatePasskey(userId, username, userDisplayName) {
             name: RP_NAME
         },
         user: {
-            id: toArrayBuffer(userId),
+            id: userHandle,
             name: username,
             displayName: userDisplayName
         },
@@ -74,7 +74,6 @@ export async function generatePasskey(userId, username, userDisplayName) {
     const clientData = JSON.parse(clientDataJSON);
 
     const passkeyData = {
-        userId,
         clientData,
         // Firefox returns nonsense for getPublicKey(), so we can't avoid parsing the attestationObject server-side...
         attestationObject: toBase64(credential.response.attestationObject),

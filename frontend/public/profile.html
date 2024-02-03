@@ -8,7 +8,6 @@
     <body>
         <div id="profile">
             <h2>Account details</h2>
-            <p hidden>User ID: <span id="userId"></span></p>
             <p>Username: <span id="username"></span></p>
             <p>Display name: <span id="displayName"></span></p>
             <h2>Registered passkeys</h2>
@@ -22,9 +21,10 @@
         <p id="errorText"></p>
     </body>
     <script type="module">
-        import { generatePasskey } from './browser.js';
+        import { generatePasskey, toArrayBuffer } from './browser.js';
 
         const CREDENTIAL_ID_ATTRIBUTE_NAME = 'data-credential-id';
+        const USER_HANDLE_ATTRIBUTE_NAME = 'data-user-handle';
 
         async function handleErrorResponse(response) {
             if (response.status === 401) {
@@ -96,7 +96,7 @@
             const response = await fetch('/api/profile');
             if (response.ok) {
                 const json = await response.json();
-                document.getElementById('userId').textContent = json.id;
+                document.getElementById('addPasskeyButton').setAttribute(USER_HANDLE_ATTRIBUTE_NAME, json.userHandle);
                 document.getElementById('username').textContent = json.username;
                 document.getElementById('displayName').textContent = json.displayName;
 
@@ -107,11 +107,11 @@
         }
 
         async function addPasskey() {
-            const userId = document.getElementById('userId').textContent;
+            const userHandle = toArrayBuffer(document.getElementById('addPasskeyButton').getAttribute(USER_HANDLE_ATTRIBUTE_NAME));
             const username = document.getElementById('username').textContent;
             const displayName = document.getElementById('displayName').textContent
 
-            const passkey = await generatePasskey(userId, username, displayName);
+            const passkey = await generatePasskey(userHandle, username, displayName);
 
             const response = await fetch('/api/passkeys', {
                 method: 'POST',

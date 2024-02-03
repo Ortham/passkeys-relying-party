@@ -33,7 +33,6 @@ Things that caught me by surprise:
 - There's no JavaScript standard library function for turning an ArrayBuffer into base64 or base64url, or for parsing them into an ArrayBuffer.
 - Although [AuthenticatorAttestationResponse.getPublicKey()](https://www.w3.org/TR/webauthn-3/#dom-authenticatorattestationresponse-getpublickey) is implemented in Firefox, its return value is invalid according to SubtleCrypto.importKey(). The same function's return value is fine in Edge. `getPublicKey()` not working as expected meant that I needed to parse the attestationObject and pull in the CBOR library dependency to help with that.
 - ES256 signatures are encoded using DER and need to be decoded before verification
-- The generation of user IDs is a bit awkward for new users without any other credentials, as it needs to be done before the user is prompted to create a passkey, but you don't want to persist any user data before they've got a credential to persist, otherwise they have no way of managing or proving ownership of that data, so you've got to generate an ID and hope it's still unique when it's written, which could cause trouble with cache-unfriendly IDs.
 
 
 ## Running locally

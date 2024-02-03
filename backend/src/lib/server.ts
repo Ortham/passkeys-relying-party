@@ -2,7 +2,6 @@ import { Buffer } from 'node:buffer';
 import { readFile } from 'node:fs/promises';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import assert from 'node:assert';
-import { createNewUserId } from '../handlers/getNewUserId.js';
 import { createChallenge, getOrCreateSession, getProfile, logout } from './session.js';
 import { createUser } from '../handlers/createUser.js';
 import { handleSignIn } from '../handlers/signIn.js';
@@ -10,6 +9,7 @@ import { deleteUser } from '../handlers/deleteUser.js';
 import { getPasskeys } from '../handlers/getPasskeys.js';
 import { createPasskey } from '../handlers/createPasskey.js';
 import { deletePasskey } from '../handlers/deletePasskey.js';
+import { database } from './database.js';
 
 async function serveFile(res: ServerResponse, filePath: string, contentType: string) {
     const file = await readFile('../frontend/public/' + filePath);
@@ -51,13 +51,6 @@ async function serveChallenge(res: ServerResponse, sessionId: string) {
 
     res.writeHead(200, {'Content-Type': 'application/json'});
     res.end(JSON.stringify({ challenge }));
-}
-
-async function serveNewUserId(res: ServerResponse) {
-    const id = createNewUserId();
-
-    res.writeHead(200, {'Content-Type': 'application/json'});
-    res.end(JSON.stringify({ id }));
 }
 
 async function handleLogout(res: ServerResponse, sessionId: string) {
@@ -123,10 +116,10 @@ async function handleSignInSubmit(req: IncomingMessage, res: ServerResponse, ses
 async function handleCreatePasskey(req: IncomingMessage, res: ServerResponse, sessionId: string) {
     const body = await readBody(req);
 
-    const user = await getProfile(sessionId);
+    const user = await database.getUserBySessionId(sessionId);
     assert(user !== undefined);
 
-    await createPasskey(body, sessionId, Buffer.from(user.id, 'base64url'));
+    await createPasskey(body, sessionId, user);
 
     res.writeHead(204);
     res.end();
@@ -174,8 +167,6 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
             await serveFile(res, 'browser.js', JAVASCRIPT);
         } else if (url.pathname === '/api/challenge') {
             await serveChallenge(res, sessionId);
-        } else if (url.pathname === '/api/newUserId') {
-            serveNewUserId(res);
         } else if (url.pathname === '/api/logout') {
             await handleLogout(res, sessionId);
         } else if (url.pathname === '/api/profile') {
