@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Passkeys Demo: Profile</title>
         <link href="/style.css" rel="stylesheet" />
     </head>
@@ -13,8 +14,10 @@
             <h2>Registered passkeys</h2>
             <ul id="passkeys"></ul>
             <form>
-                <label for="newPasskeyDescription">New passkey description: </label>
-                <input id="newPasskeyDescription" required />
+                <div>
+                    <label for="newPasskeyDescription">New passkey description: </label>
+                    <input id="newPasskeyDescription" required />
+                </div>
                 <button type="button" id="addPasskeyButton">Add a passkey</button>
             </form>
         </div>

@@ -1,16 +1,21 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Passkeys Demo: Sign Up</title>
         <link href="/style.css" rel="stylesheet" />
     </head>
     <body>
         <form id="signUpForm" action="/api/user" method="post">
-            <label for="username">Username: </label>
-            <input id="username" name="username" required />
-            <label for="displayName">Display name: </label>
-            <input id="displayName" name="displayName" />
+            <div>
+                <label for="username">Username: </label>
+                <input id="username" name="username" required />
+            </div>
+            <div>
+                <label for="displayName">Display name: </label>
+                <input id="displayName" name="displayName" />
+            </div>
             <input id="userHandle" name="userHandle" hidden />
             <input id="passkeyInput" name="passkey" hidden />
             <button type="button" id="signUpButton">Sign Up</button>
