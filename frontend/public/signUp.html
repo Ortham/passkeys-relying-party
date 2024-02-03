@@ -17,7 +17,7 @@
         </form>
     </body>
     <script type="module">
-        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, RP_ID } from './browser.js';
+        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported } from './browser.js';
 
         const RP_NAME = 'Passkeys Demo';
 
@@ -36,8 +36,7 @@
             const passkeyCreationOptions = {
                 challenge,
                 rp: {
-                    name: RP_NAME,
-                    id: RP_ID
+                    name: RP_NAME
                 },
                 user: {
                     id: toArrayBuffer(newUserId),

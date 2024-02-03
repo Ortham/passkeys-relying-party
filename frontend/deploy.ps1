@@ -10,22 +10,14 @@ $cloudfront_distribution_id = aws cloudformation describe-stacks --stack-name $s
 # Get the S3 Bucket Name from the stack
 $s3_bucket_name = aws cloudformation describe-stacks --stack-name $stack_name --query "Stacks[0].Outputs[?OutputKey=='WebsiteBucketName'].OutputValue" --output text
 
-$domain_name = aws cloudformation describe-stacks --stack-name $stack_name --query "Stacks[0].Outputs[?OutputKey=='SiteDomainName'].OutputValue" --output text
-
 # Output the results
 Write-Host "API Gateway URL: $api_gateway_endpoint"
 Write-Host "CloudFront Distribution ID: $cloudfront_distribution_id"
 Write-Host "S3 Bucket Name: $s3_bucket_name"
-Write-Host "Custom domain name: $domain_name"
-
-# Prepare files
-rm -r .\dist
-cp -r .\public .\dist
-(Get-Content -Path .\dist\browser.js -Raw) -Replace "localhost", $domain_name | Set-Content .\dist\browser.js
 
 # Sync distribution with S3
 # JS files are synced separately to avoid the wrong MIME type being guessed on Windows.
-cd dist/
+cd public/
 aws s3 sync . "s3://$s3_bucket_name/" --exclude "*.js"
 aws s3 sync . "s3://$s3_bucket_name/" --exclude "*" --include "*.js" --content-type "text/javascript"
 cd ..

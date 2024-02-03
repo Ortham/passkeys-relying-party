@@ -1,5 +1,3 @@
-export const RP_ID = 'localhost';
-
 export async function arePasskeysSupported() {
     if (window.PublicKeyCredential &&
         PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable &&

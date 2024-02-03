@@ -13,7 +13,7 @@
             <p id="errorText"></p>
         </form>
         <script type="module">
-            import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, RP_ID } from './browser.js';
+            import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported } from './browser.js';
 
             async function onSignIn() {
                 const challenge = await getChallenge();
@@ -22,7 +22,6 @@
 
                 const passkeyRequestOptions = {
                     challenge,
-                    rpId: RP_ID,
                     userVerification: 'required'
                 };
 
