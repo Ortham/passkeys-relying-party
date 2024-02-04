@@ -78,7 +78,7 @@ export function createPasskeyObject(requestBody: Omit<RequestBody, 'clientData' 
 export async function validatePasskeyInputs(passkey: Omit<RequestBody, 'description' | 'transports'>, sessionId: string): Promise<JsonWebKey> {
     // https://w3c.github.io/webauthn/#sctn-registering-a-new-credential
 
-    const expectedChallenge = await database.getChallenge(sessionId);
+    const expectedChallenge = await database.getAndDeleteChallenge(sessionId);
     assert(expectedChallenge !== undefined);
 
     validateClientData(passkey.clientData, 'webauthn.create', expectedChallenge);

@@ -142,7 +142,7 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
 
     const clientData = JSON.parse(body.clientDataJSON.toString('utf8'));
 
-    const expectedChallenge = await database.getChallenge(sessionId);
+    const expectedChallenge = await database.getAndDeleteChallenge(sessionId);
     assert(expectedChallenge !== undefined);
 
     validateClientData(clientData, 'webauthn.get', expectedChallenge);

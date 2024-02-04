@@ -9,6 +9,9 @@ const USERS_TABLE_NAME = env['USERS_TABLE_NAME'];
 const SESSIONS_TABLE_NAME = env['SESSIONS_TABLE_NAME'];
 const PASSKEYS_TABLE_NAME = env['PASSKEYS_TABLE_NAME'];
 
+const CHALLENGE_TIMEOUT_SECS = 600;
+const SESSION_TIMEOUT_SECS = 86400 * 3;
+
 export interface PasskeyData {
     type: 'public-key';
     credentialId: Buffer;
@@ -37,7 +40,10 @@ export interface User {
 interface Session {
     ttl: number;
     userId?: string;
-    challenge?: Buffer;
+    challenge?: {
+        value: Buffer;
+        ttl: number;
+    };
 }
 
 interface Database {
@@ -51,7 +57,7 @@ interface Database {
 
     sessionExists(sessionId: string): Promise<boolean>;
 
-    getChallenge(sessionId: string): Promise<Buffer | undefined>;
+    getAndDeleteChallenge(sessionId: string): Promise<Buffer | undefined>;
 
     getUserBySessionId(sessionId: string): Promise<User | undefined>;
 
@@ -75,8 +81,16 @@ function hasSessionExpired(session: Session) {
     return session.ttl <= getCurrentTimestamp();
 }
 
-function getExpiryTimestamp() {
-    return getCurrentTimestamp() + 86400 * 3; // The session will expire 3 days from now.
+function hasChallengeExpired(challenge: Required<Session>['challenge']) {
+    return challenge.ttl < getCurrentTimestamp();
+}
+
+function getSessionExpiryTimestamp() {
+    return getCurrentTimestamp() + SESSION_TIMEOUT_SECS;
+}
+
+function getChallengeExpiryTimestamp() {
+    return getCurrentTimestamp() + CHALLENGE_TIMEOUT_SECS;
 }
 
 class InProcessDatabase implements Database {
@@ -96,14 +110,17 @@ class InProcessDatabase implements Database {
 
     async insertSession(sessionId: string) {
         this.sessions.set(sessionId, {
-            ttl: getExpiryTimestamp()
+            ttl: getSessionExpiryTimestamp()
         });
     }
 
     async updateSessionChallenge(sessionId: string, challenge: Buffer) {
         const session = this.sessions.get(sessionId);
         if (session) {
-            session.challenge = challenge;
+            session.challenge = {
+                value: challenge,
+                ttl: getChallengeExpiryTimestamp()
+            };
         } else {
             throw new Error(`Session with ID ${sessionId} is undefined`);
         }
@@ -142,10 +159,17 @@ class InProcessDatabase implements Database {
         return session !== undefined && !hasSessionExpired(session);
     }
 
-    async getChallenge(sessionId: string) {
+    async getAndDeleteChallenge(sessionId: string) {
         const session = this.sessions.get(sessionId);
         if (session && !hasSessionExpired(session)) {
-            return session.challenge;
+            const challenge = session.challenge;
+            delete session.challenge;
+
+            if (challenge !== undefined && !hasChallengeExpired(challenge)) {
+                return challenge.value;
+            }
+
+            return undefined;
         } else {
             throw new Error(`Session with ID ${sessionId} is undefined`);
         }
@@ -310,7 +334,7 @@ class DynamoDbDatabase implements Database {
             TableName: SESSIONS_TABLE_NAME,
             Item: {
                 id: sessionId,
-                ttl: getExpiryTimestamp()
+                ttl: getSessionExpiryTimestamp()
             }
         };
 
@@ -325,7 +349,10 @@ class DynamoDbDatabase implements Database {
             },
             UpdateExpression: "set challenge = :challenge",
             ExpressionAttributeValues: {
-                ":challenge": challenge
+                ":challenge": {
+                    value: challenge,
+                    ttl: getChallengeExpiryTimestamp()
+                }
             }
         }
 
@@ -380,23 +407,28 @@ class DynamoDbDatabase implements Database {
         return session !== undefined && !hasSessionExpired(session as Session);
     }
 
-    async getChallenge(sessionId: string): Promise<Buffer | undefined> {
+    async getAndDeleteChallenge(sessionId: string): Promise<Buffer | undefined> {
         const params = {
             TableName: SESSIONS_TABLE_NAME,
             Key: {
                 id: sessionId
             },
-            ProjectionExpression: 'challenge'
-        };
+            UpdateExpression: "REMOVE challenge",
+            ReturnValues: ReturnValue.ALL_OLD
+        }
 
-        const session = await this.get(params);
-
-        if (session === undefined || hasSessionExpired(session as Session)) {
+        const result = await this.update(params);
+        if (result.Attributes === undefined || hasSessionExpired(result.Attributes as Session)) {
             return undefined;
         }
 
-        // challenge is deserialised as a Uint8Array.
-        return Buffer.from(session['challenge']);
+        const challenge = result.Attributes['challenge'];
+        if (challenge === undefined || hasChallengeExpired(challenge)) {
+            return undefined;
+        }
+
+        // challenge.value is deserialised as a Uint8Array.
+        return Buffer.from(challenge.value);
     }
 
     async getUserBySessionId(sessionId: string): Promise<User | undefined> {
