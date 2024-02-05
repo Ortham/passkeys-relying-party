@@ -117,7 +117,7 @@ async function handleCreatePasskey(req: IncomingMessage, res: ServerResponse, se
     const body = await readBody(req);
 
     const user = await database.getUserBySessionId(sessionId);
-    assert(user !== undefined);
+    assert(user !== undefined, 'No user found for the given session ID');
 
     await createPasskey(body, sessionId, user);
 
@@ -147,7 +147,7 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
     const CSS = 'text/css';
     const JAVASCRIPT = 'text/javascript';
 
-    assert(req.url);
+    assert(req.url, 'The request has no URL');
 
     const sessionId = await setSessionCookie(req, res);
 
@@ -193,7 +193,7 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
             await handleDeleteUser(res, sessionId);
         } else if (url.pathname.startsWith('/api/passkeys/')) {
             const passkeyId = url.pathname.split('/').at(-1);
-            assert(passkeyId !== undefined && passkeyId.length > 0);
+            assert(passkeyId !== undefined && passkeyId.length > 0, 'The request path has no passkey ID');
             await handleDeletePasskey(res, sessionId, passkeyId);
         } else {
             res.writeHead(404);

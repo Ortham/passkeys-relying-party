@@ -19,7 +19,7 @@ interface SignInBody {
 function parseSignInBody(body: string): SignInBody {
     const parameters = new URLSearchParams(body);
     const passkeyJSON = parameters.get('passkey');
-    assert(passkeyJSON !== null);
+    assert(passkeyJSON !== null, 'Passkey data is not in request body');
     const passkey = JSON.parse(passkeyJSON);
 
     return {
@@ -73,10 +73,10 @@ function fixPadding(buffer: Buffer, targetLength: number) {
 function readDerInteger(buffer: Buffer, expectedValueLength: number): { value: Buffer, end: number } {
     const DER_TAG_INTEGER = 0x02;
 
-    assert.strictEqual(buffer[0], DER_TAG_INTEGER);
+    assert.strictEqual(buffer[0], DER_TAG_INTEGER, 'The DER buffer does not start with an integer');
 
     const valueLength = buffer[1];
-    assert(valueLength !== undefined);
+    assert(valueLength !== undefined, 'The DER buffer is shorter than expected');
 
     const start = 2;
     const end = start + valueLength;
@@ -93,8 +93,8 @@ function readDerInteger(buffer: Buffer, expectedValueLength: number): { value: B
 function decodeEcdsaSignature(signature: Buffer, expectedSignatureLength: number): Buffer {
     const DER_TAG_SEQUENCE = 0x30;
 
-    assert.strictEqual(signature[0], DER_TAG_SEQUENCE);
-    assert.strictEqual(signature[1], signature.byteLength - 2);
+    assert.strictEqual(signature[0], DER_TAG_SEQUENCE, 'The DER buffer does not start with a sequence');
+    assert.strictEqual(signature[1], signature.byteLength - 2, 'The DER sequence length does not match the buffer size');
 
     assert.strictEqual(expectedSignatureLength % 2, 0, 'Invalid expected signature length');
 
@@ -133,17 +133,17 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
     const body = parseSignInBody(bodyString);
     console.log('Request body is', body);
 
-    assert(body.userHandle !== undefined);
+    assert(body.userHandle !== undefined, 'User handle is not in the request body');
 
     const passkey = await database.getPasskeyData(body.id);
-    assert(passkey !== undefined);
+    assert(passkey !== undefined, 'No stored passkey found with the given ID');
     console.log('Retrieved passkey data', passkey);
     assert(body.userHandle.equals(passkey.userHandle), 'The given user handle does not match the stored user handle for this credential');
 
     const clientData = JSON.parse(body.clientDataJSON.toString('utf8'));
 
     const expectedChallenge = await database.getAndDeleteChallenge(sessionId);
-    assert(expectedChallenge !== undefined);
+    assert(expectedChallenge !== undefined, 'No stored challenge found');
 
     validateClientData(clientData, 'webauthn.get', expectedChallenge);
 
@@ -170,7 +170,7 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
         }
 
         // No need to update uvInitialised as it's required to be true initially.
-        assert(passkey.uvInitialized);
+        assert(passkey.uvInitialized, 'uvInitialized is not already true');
 
         const isBackedUp = isBitFlagSet(authData.flags, FLAG_BACKUP_STATE);
         await database.updatePasskeyState(body.id, authData.signCount, isBackedUp);
@@ -184,10 +184,10 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
 }
 
 export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _context) => {
-    assert(event.body !== null);
+    assert(event.body !== null, 'The request has no body');
 
     const sessionId = getSessionId(event.headers);
-    assert(sessionId !== undefined);
+    assert(sessionId !== undefined, 'The request has no session ID');
 
     const isValid = await handleSignIn(event.body, sessionId);
 

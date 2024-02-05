@@ -17,7 +17,7 @@ export async function getPasskeys(sessionId: string) {
     const passkeys = await Promise.all(promises);
 
     return passkeys.filter(p => !!p).map(passkey => {
-        assert(passkey !== undefined);
+        assert(passkey !== undefined, 'No passkey found for one of the user\'s credential IDs');
         return {
             id: passkey.credentialId.toString('base64url'),
             description: passkey.description,

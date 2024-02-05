@@ -74,10 +74,10 @@ function rsaCoseToJwk(key: RsaCoseKey): JsonWebKey {
 }
 
 export function validatePublicKey(publicKey: unknown): asserts publicKey is CoseKey {
-    assert(publicKey !== null);
-    assert(typeof publicKey === 'object');
-    assert('1' in publicKey);
-    assert('3' in publicKey);
+    assert(publicKey !== null, 'The public key is null');
+    assert(typeof publicKey === 'object', 'The public key is not an object');
+    assert('1' in publicKey, 'The public key\'s kty field is missing');
+    assert('3' in publicKey, 'The public key\'s alg field is missing');
 }
 
 export function coseToJwk(key: CoseKey): JsonWebKey {

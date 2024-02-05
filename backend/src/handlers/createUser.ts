@@ -21,10 +21,10 @@ function parseSignUpBody(body: string): RequestBody {
     const userHandle = parameters.get('userHandle');
     const passkeyJSON = parameters.get('passkey');
 
-    assert(username !== null);
-    assert(displayName !== null);
-    assert(userHandle !== null);
-    assert(passkeyJSON !== null);
+    assert(username !== null, 'Username is not in request body');
+    assert(displayName !== null, 'Display name is not in request body');
+    assert(userHandle !== null, 'User handle is not in request body');
+    assert(passkeyJSON !== null, 'Passkey data is not in request body');
 
     const passkey = parseCreatePasskeyRequestBody(passkeyJSON);
 
@@ -65,10 +65,10 @@ export async function createUser(bodyString: string, sessionId: string) {
 }
 
 export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _context) => {
-    assert(event.body !== null);
+    assert(event.body !== null, 'The request has no body');
 
     const sessionId = getSessionId(event.headers);
-    assert(sessionId !== undefined);
+    assert(sessionId !== undefined, 'The request has no session ID');
 
     await createUser(event.body, sessionId);
 

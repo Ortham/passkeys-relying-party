@@ -11,7 +11,7 @@ export async function deleteUser(sessionId: string) {
 
 export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _context) => {
     const sessionId = getSessionId(event.headers);
-    assert(sessionId !== undefined);
+    assert(sessionId !== undefined, 'The request has no session ID');
 
     const responseHeaders = await deleteUser(sessionId);
 

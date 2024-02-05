@@ -39,9 +39,9 @@ function decodeAttestationObject(attestationObject: Buffer): AttestationObject {
 }
 
 function validateAttestationObject(attestationObject: AttestationObject, expectedRpIdHash: ArrayBuffer): asserts attestationObject is ValidatedAttestationObject {
-    assert.strictEqual(attestationObject.fmt, 'none');
-    assert(typeof attestationObject.attStmt === 'object' && attestationObject.attStmt !== null);
-    assert.strictEqual(Object.keys(attestationObject.attStmt).length, 0);
+    assert.strictEqual(attestationObject.fmt, 'none', 'Assertion format is not none');
+    assert(typeof attestationObject.attStmt === 'object' && attestationObject.attStmt !== null, 'Assertion statement is not an object');
+    assert.strictEqual(Object.keys(attestationObject.attStmt).length, 0, 'Assertion statement is not empty');
 
     validateAuthData(attestationObject, expectedRpIdHash, true);
 }
@@ -79,7 +79,7 @@ export async function validatePasskeyInputs(passkey: Omit<RequestBody, 'descript
     // https://w3c.github.io/webauthn/#sctn-registering-a-new-credential
 
     const expectedChallenge = await database.getAndDeleteChallenge(sessionId);
-    assert(expectedChallenge !== undefined);
+    assert(expectedChallenge !== undefined, 'No stored challenge found');
 
     validateClientData(passkey.clientData, 'webauthn.create', expectedChallenge);
 
@@ -89,7 +89,7 @@ export async function validatePasskeyInputs(passkey: Omit<RequestBody, 'descript
     // Don't care about client extensions.
 
     const passkeyExists = await database.passkeyExists(passkey.attestationObject.credentialId);
-    assert(!passkeyExists);
+    assert(!passkeyExists, 'No stored passkey with the given credential ID');
 
     return coseToJwk(passkey.attestationObject.credentialPublicKey);
 }
@@ -107,13 +107,13 @@ export async function createPasskey(bodyString: string, sessionId: string, user:
 }
 
 export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _context) => {
-    assert(event.body !== null);
+    assert(event.body !== null, 'The request has no body');
 
     const sessionId = getSessionId(event.headers);
-    assert(sessionId !== undefined);
+    assert(sessionId !== undefined, 'The request has no session ID');
 
     const user = await database.getUserBySessionId(sessionId);
-    assert(user !== undefined);
+    assert(user !== undefined, 'No user found for the given session ID');
 
     await createPasskey(event.body, sessionId, user);
 
