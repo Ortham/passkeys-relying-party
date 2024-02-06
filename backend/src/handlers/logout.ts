@@ -7,11 +7,8 @@ export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _conte
     const responseHeaders = sessionId === undefined ? {} : await logout(sessionId);
 
     const response = {
-        statusCode: 302,
-        headers: {
-            ...responseHeaders,
-            'Location': '/'
-        }
+        statusCode: 204,
+        headers: responseHeaders
     };
 
     return response;

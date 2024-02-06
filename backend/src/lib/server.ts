@@ -57,10 +57,7 @@ async function serveChallenge(res: ServerResponse, sessionId: string) {
 async function handleLogout(res: ServerResponse, sessionId: string) {
     const responseHeaders = await logout(sessionId);
 
-    res.writeHead(302, {
-        ...responseHeaders,
-        'Location': '/'
-    });
+    res.writeHead(204, responseHeaders);
     res.end();
 }
 

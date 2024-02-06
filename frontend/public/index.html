@@ -13,10 +13,19 @@
             <li><a href="/signIn.html">Sign In</a></li>
             <li><a href="/profile.html">My Profile</a></li>
             <li><a href="#" id="deleteAccountLink">Delete My Account</a></li>
-            <li><a href="/api/logout">Logout</a></li>
+            <li><a href="#" id="logoutLink">Logout</a></li>
         </ul>
     </body>
     <script type="module">
+        async function logout() {
+            const response = await fetch('/api/logout');
+            if (response.ok) {
+                console.log('Logout succeeded');
+            } else {
+                console.error('Logout failed!');
+            }
+        }
+
         document.getElementById('deleteAccountLink').addEventListener('click', async (evt) => {
             const response = await fetch('/api/user', {
                 method: 'DELETE'
@@ -30,5 +39,7 @@
 
             evt.preventDefault();
         });
+
+        document.getElementById('logoutLink').addEventListener('click', logout);
     </script>
 </html>
