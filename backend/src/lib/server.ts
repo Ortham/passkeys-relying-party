@@ -163,8 +163,8 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
         if (req.method === 'GET') {
             if (url.pathname === '/') {
                 await serveFile(res, 'index.html', HTML);
-            } else if (url.pathname === '/profile.html') {
-                await serveFile(res, 'profile.html', HTML);
+            } else if (url.pathname === '/account.html') {
+                await serveFile(res, 'account.html', HTML);
             } else if (url.pathname === '/signUp.html') {
                 await serveFile(res, 'signUp.html', HTML);
             } else if (url.pathname === '/signIn.html') {
