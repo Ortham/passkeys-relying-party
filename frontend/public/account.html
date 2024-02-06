@@ -6,7 +6,7 @@
         <title>Passkeys Demo: My Account</title>
         <link href="/style.css" rel="stylesheet" />
     </head>
-    <body>
+    <body hidden>
         <div id="profile">
             <h2>Account details</h2>
             <p>Username: <span id="username"></span></p>
@@ -108,6 +108,8 @@
             } else {
                 handleErrorResponse(response);
             }
+
+            document.body.hidden = false;
         }
 
         async function addPasskey() {
