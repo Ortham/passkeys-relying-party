@@ -1,4 +1,4 @@
-# Passkeys experiment
+# Passkeys Relying Party
 
 This is a toy implementation of a basic sign up and sign in flow using passkeys, which I wrote to help check my understanding of the flows. **It is not safe for production use.** Data is not encrypted in transit, there are no guards against stored data getting overwritten improperly, and no doubt there are other security issues too. It's a relatively quick-and-dirty implementation without much effort spent on things like code quality, error handling or writing tests.
 
