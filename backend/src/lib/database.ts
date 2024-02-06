@@ -251,12 +251,7 @@ class InProcessDatabase implements Database {
     }
 
     async getPasskeyData(credentialId: Buffer) {
-        const passkey = this.passkeys.get(credentialId.toString('base64'));
-        if (!passkey) {
-            throw new Error(`Passkey with ID ${credentialId} is undefined`);
-        }
-
-        return passkey;
+        return this.passkeys.get(credentialId.toString('base64'));
     }
 
     async updatePasskeyState(credentialId: Buffer, signCount: number, backupState: boolean) {
