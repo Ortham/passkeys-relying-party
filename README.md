@@ -4,13 +4,13 @@ This is a toy implementation of a basic sign up and sign in flow using passkeys,
 
 The project can be run as a local server, in which case all data is only held in memory (so if something goes wrong the server will probably crash and forget everything), or deployed to AWS. Third-party dependencies are minimal, with libraries only added for decoding CBOR and interacting with DynamoDB, and tooling limited to TypeScript and esbuild.
 
-Attestation is not supported, and client extensions are ignored. Conditional mediation is commented out because it doesn't work properly on Windows 10 with Windows Hello.
-
 The local server has been tested with Node.js v20.11.0, Deno v1.40.2 and Bun v1.0.25. The AWS deployment has been tested with the following clients:
 
 - Firefox v122 on Windows 10 22H2 with Windows Hello
+- Firefox v122 on Windows 10 22H2 with Bitwarden
 - Firefox v122 on Windows 10 22H2 with Dashlane
 - Edge v121 on Windows 10 22H2 with Windows Hello
+- Edge v121 on Windows 10 22H2 with cross-device authentication to Android 14 with Google Credential Manager
 - Chrome v121 on Android 14 with Google Credential Manager
 - Chrome v121 on macOS 14.2.1 using Chrome's profile
 - Chrome v121 on macOS 14.2.1 using 1Password
@@ -25,6 +25,7 @@ Limitations:
 - Does not support attestation or client extensions
 - Conditional mediation is commented out because it doesn't work properly on Windows 10 with Windows Hello (and is untested on other platforms).
 - There's no UI that acknowledges successful sign in, sign up or logout
+- The index UI is not conditional (e.g. Sign In and Logout are both visible at the same time)
 
 Things that caught me by surprise:
 
