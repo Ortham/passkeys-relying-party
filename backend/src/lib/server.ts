@@ -10,6 +10,7 @@ import { getPasskeys } from '../handlers/getPasskeys.js';
 import { createPasskey } from '../handlers/createPasskey.js';
 import { deletePasskey } from '../handlers/deletePasskey.js';
 import { database } from './database.js';
+import { getSession } from '../handlers/getSession.js';
 
 async function serveFile(res: ServerResponse, filePath: string, contentType: string) {
     const file = await readFile('../frontend/public/' + filePath);
@@ -83,6 +84,18 @@ async function handleGetPasskeys(res: ServerResponse, sessionId: string) {
         res.end(JSON.stringify(passkeys));
     } else {
         res.writeHead(401);
+        res.end();
+    }
+}
+
+async function handleGetSession(res: ServerResponse, sessionId: string) {
+    const session = await getSession(sessionId);
+
+    if (session) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(session));
+    } else {
+        res.writeHead(404);
         res.end();
     }
 }
@@ -174,6 +187,8 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
                 await handleGetProfile(res, sessionId);
             } else if (url.pathname === '/api/passkeys') {
                 await handleGetPasskeys(res, sessionId);
+            } else if (url.pathname === '/api/session') {
+                await handleGetSession(res, sessionId);
             } else {
                 res.writeHead(404);
                 res.end();

@@ -39,7 +39,7 @@ export interface User {
 
 interface Session {
     ttl: number;
-    userId?: string;
+    userId?: Buffer;
     challenge?: {
         value: Buffer;
         ttl: number;
@@ -56,6 +56,8 @@ interface Database {
     updateSessionUserId(sessionId: string, userId: Buffer): Promise<void>;
 
     sessionExists(sessionId: string): Promise<boolean>;
+
+    getSession(sessionId: string): Promise<Session | undefined>;
 
     getAndDeleteChallenge(sessionId: string): Promise<Buffer | undefined>;
 
@@ -134,7 +136,7 @@ class InProcessDatabase implements Database {
 
         // If the session already had a user ID associated with it, remove the session ID from that user's sessions set.
         if (session.userId !== undefined) {
-            const user = this.users.get(session.userId);
+            const user = this.users.get(session.userId.toString('base64'));
             if (!user) {
                 throw new Error(`User with ID ${userId} is undefined`);
             }
@@ -143,10 +145,10 @@ class InProcessDatabase implements Database {
         }
 
         // Update the session's user ID
-        session.userId = userId.toString('base64');
+        session.userId = userId;
 
         // Update the user's sessions.
-        const user = this.users.get(session.userId);
+        const user = this.users.get(userId.toString('base64'));
         if (!user) {
             throw new Error(`User with ID ${userId} is undefined`);
         }
@@ -155,8 +157,17 @@ class InProcessDatabase implements Database {
     }
 
     async sessionExists(sessionId: string) {
+        const session = await this.getSession(sessionId);
+        return session !== undefined;
+    }
+
+    async getSession(sessionId: string): Promise<Session | undefined> {
         const session = this.sessions.get(sessionId);
-        return session !== undefined && !hasSessionExpired(session);
+        if (session !== undefined && !hasSessionExpired(session)) {
+            return session;
+        }
+
+        return undefined;
     }
 
     async getAndDeleteChallenge(sessionId: string) {
@@ -186,7 +197,7 @@ class InProcessDatabase implements Database {
             return undefined;
         }
 
-        return this.users.get(userId);
+        return this.users.get(userId.toString('base64'));
     }
 
     async deleteUserBySessionId(sessionId: string) {
@@ -211,7 +222,7 @@ class InProcessDatabase implements Database {
 
         // Update the user's sessions.
         if (session && session.userId) {
-            const user = this.users.get(session.userId);
+            const user = this.users.get(session.userId.toString('base64'));
             user?.sessions.delete(sessionId);
         }
 
@@ -400,6 +411,25 @@ class DynamoDbDatabase implements Database {
 
         const session = await this.get(params);
         return session !== undefined && !hasSessionExpired(session as Session);
+    }
+
+    async getSession(sessionId: string): Promise<Session | undefined> {
+        const params = {
+            TableName: SESSIONS_TABLE_NAME,
+            Key: {
+                id: sessionId
+            }
+        };
+
+        const session = await this.get(params);
+        if (session !== undefined && !hasSessionExpired(session as Session)) {
+            session['userId'] = Buffer.from(session['userId']);
+            session['challenge']['value'] = Buffer.from(session['challenge']['value']);
+
+            return session as Session;
+        }
+
+        return undefined;
     }
 
     async getAndDeleteChallenge(sessionId: string): Promise<Buffer | undefined> {

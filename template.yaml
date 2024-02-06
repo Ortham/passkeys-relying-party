@@ -170,6 +170,41 @@ Resources:
           - .js=.cjs
         Target: es2022
 
+  GetSessionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend
+      Handler: getSession.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 60
+      Description: Get a user's session
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+      Environment:
+        Variables:
+          SESSIONS_TABLE_NAME: !Ref SessionsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /api/session
+            Method: GET
+            RestApiId:
+              Ref: ApiGatewayApi
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/getSession.ts
+        Format: cjs
+        OutExtension:
+          - .js=.cjs
+        Target: es2022
+
   CreatePasskeyFunction:
     Type: AWS::Serverless::Function
     Properties:
