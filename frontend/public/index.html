@@ -12,7 +12,6 @@
             <li><a href="/signUp.html">Sign Up</a></li>
             <li><a href="/signIn.html">Sign In</a></li>
             <li><a href="/account.html">My Account</a></li>
-            <li><a href="#" id="deleteAccountLink">Delete My Account</a></li>
             <li><a href="#" id="logoutLink">Logout</a></li>
         </ul>
     </body>
@@ -25,20 +24,6 @@
                 console.error('Logout failed!');
             }
         }
-
-        document.getElementById('deleteAccountLink').addEventListener('click', async (evt) => {
-            const response = await fetch('/api/user', {
-                method: 'DELETE'
-            });
-            if (response.ok) {
-                console.log('Account deletion successful!');
-                window.location = '/';
-            } else {
-                console.error('Account deletion failed!');
-            }
-
-            evt.preventDefault();
-        });
 
         document.getElementById('logoutLink').addEventListener('click', logout);
     </script>

@@ -20,6 +20,7 @@
                 </div>
                 <button type="button" id="addPasskeyButton">Add a passkey</button>
             </form>
+            <button id="deleteAccountLink">Delete My Account</button>
         </div>
         <p id="errorText"></p>
     </body>
@@ -135,6 +136,18 @@
             await getPasskeys();
         }
 
+        async function deleteAccount() {
+            const response = await fetch('/api/user', {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                console.log('Account deletion successful!');
+                window.location = '/';
+            } else {
+                console.error('Account deletion failed!');
+            }
+        }
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', getProfile);
         } else {
@@ -142,5 +155,6 @@
         }
 
         document.getElementById('addPasskeyButton').addEventListener('click', addPasskey);
+        document.getElementById('deleteAccountLink').addEventListener('click', deleteAccount);
     </script>
 </html>
