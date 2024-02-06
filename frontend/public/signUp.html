@@ -16,14 +16,12 @@
                 <label for="displayName">Display name: </label>
                 <input id="displayName" name="displayName" />
             </div>
-            <input id="userHandle" name="userHandle" hidden />
-            <input id="passkeyInput" name="passkey" hidden />
             <button type="button" id="signUpButton">Sign Up</button>
             <p id="errorText"></p>
         </form>
     </body>
     <script type="module">
-        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, generatePasskey } from './browser.js';
+        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, generatePasskey, postJson } from './browser.js';
 
         function generateUserHandle() {
             // https://www.w3.org/TR/webauthn-3/#sctn-user-handle-privacy
@@ -38,10 +36,18 @@
 
             const passkey = await generatePasskey(userHandle, username, displayName)
 
-            document.getElementById('userHandle').value = toBase64(userHandle);
-            document.getElementById('passkeyInput').value = JSON.stringify(passkey);
+            const response = await postJson('/api/user', {
+                userHandle: toBase64(userHandle),
+                username,
+                displayName,
+                passkey
+            });
 
-            document.getElementById('signUpForm').submit();
+            if (!response.ok) {
+                document.getElementById('errorText').textContent = 'Failed to create account!';
+            } else {
+                window.location = '/';
+            }
         }
 
         arePasskeysSupported().then(async result => {

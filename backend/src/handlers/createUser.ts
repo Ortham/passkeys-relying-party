@@ -13,25 +13,20 @@ interface RequestBody {
     passkey: Omit<CreatePasskeyRequestBody, 'description'>;
 }
 
-function parseSignUpBody(body: string): RequestBody {
-    const parameters = new URLSearchParams(body);
+function parseRequestBody(body: string): RequestBody {
+    const json = JSON.parse(body);
 
-    const username = parameters.get('username');
-    const displayName = parameters.get('displayName');
-    const userHandle = parameters.get('userHandle');
-    const passkeyJSON = parameters.get('passkey');
+    assert(json.username !== null, 'Username is not in request body');
+    assert(json.displayName !== null, 'Display name is not in request body');
+    assert(json.userHandle !== null, 'User handle is not in request body');
+    assert(json.passkey !== null, 'Passkey data is not in request body');
 
-    assert(username !== null, 'Username is not in request body');
-    assert(displayName !== null, 'Display name is not in request body');
-    assert(userHandle !== null, 'User handle is not in request body');
-    assert(passkeyJSON !== null, 'Passkey data is not in request body');
-
-    const passkey = parseCreatePasskeyRequestBody(passkeyJSON);
+    const passkey = parseCreatePasskeyRequestBody(JSON.stringify(json.passkey));
 
     return {
-        userHandle: Buffer.from(userHandle, 'base64'),
-        username,
-        displayName,
+        userHandle: Buffer.from(json.userHandle, 'base64'),
+        username: json.username,
+        displayName: json.displayName,
         passkey
     };
 }
@@ -48,7 +43,7 @@ function createUserObject(requestBody: RequestBody): User {
 }
 
 export async function createUser(bodyString: string, sessionId: string) {
-    const body = parseSignUpBody(bodyString);
+    const body = parseRequestBody(bodyString);
     console.log('Request body is', body);
 
     const user = createUserObject(body);
@@ -73,10 +68,7 @@ export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _conte
     await createUser(event.body, sessionId);
 
     const response = {
-        statusCode: 302,
-        headers: {
-            'Location': '/'
-        },
+        statusCode: 204
     };
 
     return response;

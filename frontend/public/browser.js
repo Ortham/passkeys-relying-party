@@ -83,3 +83,13 @@ export async function generatePasskey(userHandle, username, userDisplayName) {
 
     return passkeyData;
 }
+
+export function postJson(url, bodyObject) {
+    return fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(bodyObject)
+    });
+}

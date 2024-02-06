@@ -106,7 +106,7 @@ async function handleSignUpSubmit(req: IncomingMessage, res: ServerResponse, ses
 
     await createUser(body, sessionId);
 
-    res.writeHead(302, { 'Location': '/' });
+    res.writeHead(204);
     res.end();
 }
 
