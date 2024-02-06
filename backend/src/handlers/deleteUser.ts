@@ -16,11 +16,8 @@ export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _conte
     const responseHeaders = await deleteUser(sessionId);
 
     const response = {
-        statusCode: 302,
-        headers: {
-            ...responseHeaders,
-            'Location': '/'
-        }
+        statusCode: 204,
+        headers: responseHeaders
     };
 
     return response;

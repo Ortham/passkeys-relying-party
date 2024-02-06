@@ -141,10 +141,7 @@ async function handleCreatePasskey(req: IncomingMessage, res: ServerResponse, se
 async function handleDeleteUser(res: ServerResponse, sessionId: string) {
     const responseHeaders = await deleteUser(sessionId);
 
-    res.writeHead(302, {
-        ...responseHeaders,
-        'Location': '/'
-    });
+    res.writeHead(204, responseHeaders);
     res.end();
 }
 
