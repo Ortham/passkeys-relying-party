@@ -6,25 +6,51 @@
         <title>Passkeys Demo: Index</title>
         <link href="/style.css" rel="stylesheet" />
     </head>
-    <body>
+    <body hidden>
         <p>Welcome, please select the relevant option:</p>
-        <ul>
+        <ul id="notLoggedInItems">
             <li><a href="/signUp.html">Sign Up</a></li>
             <li><a href="/signIn.html">Sign In</a></li>
-            <li><a href="/account.html">My Account</a></li>
-            <li><a href="#" id="logoutLink">Logout</a></li>
+        </ul>
+        <ul id="loggedInItems">
+            <li><a href="/account.html">My Profile</a></li>
+            <li><a id="logoutLink" href="#">Logout</a></li>
         </ul>
     </body>
     <script type="module">
+        function toggleItems(isLoggedIn) {
+            document.getElementById('notLoggedInItems').hidden = isLoggedIn;
+            document.getElementById('loggedInItems').hidden = !isLoggedIn;
+        }
+
         async function logout() {
             const response = await fetch('/api/logout');
             if (response.ok) {
-                console.log('Logout succeeded');
+                toggleItems(false);
             } else {
                 console.error('Logout failed!');
             }
         }
 
-        document.getElementById('logoutLink').addEventListener('click', logout);
+        async function initPage() {
+            const response = await fetch('/api/session');
+            if (response.ok) {
+                const json = await response.json();
+                toggleItems(!!json.userId);
+            } else {
+                console.error('Failed to get session!');
+                toggleItems(false);
+            }
+
+            document.getElementById('logoutLink').addEventListener('click', logout);
+
+            document.body.hidden = false;
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPage);
+        } else {
+            initPage();
+        }
     </script>
 </html>
