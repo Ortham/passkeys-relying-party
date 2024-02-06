@@ -16,11 +16,8 @@ interface SignInBody {
     authenticatorData: Buffer;
 }
 
-function parseSignInBody(body: string): SignInBody {
-    const parameters = new URLSearchParams(body);
-    const passkeyJSON = parameters.get('passkey');
-    assert(passkeyJSON !== null, 'Passkey data is not in request body');
-    const passkey = JSON.parse(passkeyJSON);
+function parseRequestBody(body: string): SignInBody {
+    const passkey = JSON.parse(body);
 
     return {
         id: Buffer.from(passkey.id, 'base64url'),
@@ -130,7 +127,7 @@ async function verify(jwk: JsonWebKey, signature: Buffer, signedData: Buffer): P
 }
 
 export async function handleSignIn(bodyString: string, sessionId: string) {
-    const body = parseSignInBody(bodyString);
+    const body = parseRequestBody(bodyString);
     console.log('Request body is', body);
 
     assert(body.userHandle !== undefined, 'User handle is not in the request body');
@@ -194,18 +191,11 @@ export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _conte
     let response;
     if (isValid) {
         response = {
-            statusCode: 302,
-            headers: {
-                'Location': '/'
-            },
+            statusCode: 204
         };
     } else {
         response = {
-            statusCode: 400,
-            headers: {
-                'Content-Type': 'text/html'
-            },
-            body: '<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body><p>Authentication failed!</p></body></html>'
+            statusCode: 400
         }
     }
 

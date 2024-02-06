@@ -118,11 +118,11 @@ async function handleSignInSubmit(req: IncomingMessage, res: ServerResponse, ses
     const isValid = await handleSignIn(body, sessionId);
 
     if (isValid) {
-        res.writeHead(302, { 'Location': '/' });
+        res.writeHead(204);
         res.end();
     } else {
-        res.writeHead(400, { 'Content-Type': 'text/html' });
-        res.end(`<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body><p>Authentication failed!</p></body></html>`);
+        res.writeHead(400);
+        res.end();
     }
 }
 
