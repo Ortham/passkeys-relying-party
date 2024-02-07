@@ -110,13 +110,9 @@
                 document.getElementById('addPasskeyButton').setAttribute(USER_HANDLE_ATTRIBUTE_NAME, json.userHandle);
                 document.getElementById('username').value = json.username;
                 document.getElementById('displayName').value = json.displayName;
-
-                await getPasskeys();
             } else {
                 handleErrorResponse(response);
             }
-
-            document.body.hidden = false;
         }
 
         async function addPasskey() {
@@ -162,10 +158,16 @@
             }
         }
 
+        async function initPage() {
+            await Promise.all([getProfile(), getPasskeys()]);
+
+            document.body.hidden = false;
+        }
+
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', getProfile);
+            document.addEventListener('DOMContentLoaded', initPage);
         } else {
-            getProfile();
+            initPage();
         }
 
         document.getElementById('addPasskeyButton').addEventListener('click', addPasskey);

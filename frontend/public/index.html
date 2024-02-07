@@ -90,11 +90,12 @@
         }
 
         async function initPage() {
-            await showButtons();
-
             document.getElementById('logoutLink').addEventListener('click', logout);
 
-            const passkeysSupported = await arePasskeysSupported();
+            const [passkeysSupported,] = await Promise.all([
+                arePasskeysSupported(),
+                showButtons()
+            ]);
             if (passkeysSupported) {
                 console.log('Your browser appears to support passkeys, enabling sign in.');
                 document.getElementById('signInButton').addEventListener('click', onSignIn);
