@@ -167,8 +167,6 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
                 await serveFile(res, 'account.html', HTML);
             } else if (url.pathname === '/signUp.html') {
                 await serveFile(res, 'signUp.html', HTML);
-            } else if (url.pathname === '/signIn.html') {
-                await serveFile(res, 'signIn.html', HTML);
             } else if (url.pathname === '/style.css') {
                 await serveFile(res, 'style.css', CSS);
             } else if (url.pathname === '/browser.js') {

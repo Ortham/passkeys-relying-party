@@ -37,7 +37,7 @@ export async function getChallenge() {
 
 export function handlePasskeysNotSupported() {
     console.error('Your web browser does not support passkeys!');
-    document.getElementById('errorText').textContent = 'Sign up is not available because your web browser does not appear to support passkeys!';
+    document.getElementById('errorText').textContent = 'Your web browser does not appear to support passkeys!';
 }
 
 export async function generatePasskey(userHandle, username, userDisplayName) {

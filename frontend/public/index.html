@@ -10,17 +10,58 @@
         <p>Welcome, please select the relevant option:</p>
         <ul id="notLoggedInItems">
             <li><a href="/signUp.html">Sign Up</a></li>
-            <li><a href="/signIn.html">Sign In</a></li>
+            <li><a id="signInButton" href="#">Sign In</a></li>
         </ul>
         <ul id="loggedInItems">
             <li><a href="/account.html">My Profile</a></li>
             <li><a id="logoutLink" href="#">Logout</a></li>
         </ul>
+        <p id="errorText"></p>
     </body>
     <script type="module">
+        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, postJson } from './browser.js';
+
         function toggleItems(isLoggedIn) {
             document.getElementById('notLoggedInItems').hidden = isLoggedIn;
             document.getElementById('loggedInItems').hidden = !isLoggedIn;
+        }
+
+        async function onSignIn() {
+            const challenge = await getChallenge();
+
+            const abortController = new AbortController();
+
+            const passkeyRequestOptions = {
+                challenge,
+                userVerification: 'required'
+            };
+
+            console.log('Requesting credential...');
+
+            const credential = await navigator.credentials.get({
+                publicKey: passkeyRequestOptions,
+                signal: abortController.signal,
+                // Conditional mediation / autofill UI doesn't work on Windows 10 with Windows Hello.
+                //mediation: 'conditional'
+            });
+
+            console.log('Got credential:', credential);
+
+            const response = await postJson('/api/signIn', {
+                id: credential.id,
+                clientDataJSON: toBase64(credential.response.clientDataJSON),
+                signature: toBase64(credential.response.signature),
+                authenticatorData: toBase64(credential.response.authenticatorData),
+                userHandle: credential.response.userHandle
+                    ? toBase64(credential.response.userHandle)
+                    : undefined,
+            });
+
+            if (!response.ok) {
+                document.getElementById('errorText').textContent = 'Failed to sign in!';
+            } else {
+                await showButtons();
+            }
         }
 
         async function logout() {
@@ -32,7 +73,7 @@
             }
         }
 
-        async function initPage() {
+        async function showButtons() {
             const response = await fetch('/api/session');
             if (response.ok) {
                 const json = await response.json();
@@ -41,8 +82,23 @@
                 console.error('Failed to get session!');
                 toggleItems(false);
             }
+        }
+
+        async function initPage() {
+            await showButtons();
 
             document.getElementById('logoutLink').addEventListener('click', logout);
+
+            const passkeysSupported = await arePasskeysSupported();
+            if (passkeysSupported) {
+                console.log('Your browser appears to support passkeys, enabling sign in.');
+                document.getElementById('signInButton').addEventListener('click', onSignIn);
+            } else {
+                handlePasskeysNotSupported();
+                for (const element of document.getElementsByTagName('a')) {
+                    element.classList.add('disabled');
+                }
+            }
 
             document.body.hidden = false;
         }

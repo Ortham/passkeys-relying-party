@@ -1,10 +1,10 @@
-#signInButton {
-    visibility: hidden;
-}
 #errorText {
     color: red;
 }
 
 form > div {
     margin: 0.5em 0;
+}
+.disabled {
+    pointer-events: none;
 }
