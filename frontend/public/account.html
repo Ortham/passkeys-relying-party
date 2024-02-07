@@ -8,19 +8,25 @@
     </head>
     <body hidden>
         <div id="profile">
-            <h2>Account details</h2>
-            <p>Username: <span id="username"></span></p>
-            <p>Display name: <span id="displayName"></span></p>
-            <h2>Registered passkeys</h2>
+            <h1>My Account</h1>
+            <h2>User Profile</h2>
+            <div class="field">
+                <label for="username">Username</label>
+                <input id="username" name="username" disabled />
+            </div>
+            <div class="field">
+                <label for="displayName">Display name</label>
+                <input id="displayName" name="displayName" disabled />
+            </div>
+            <h2>Registered Passkeys</h2>
             <ul id="passkeys"></ul>
-            <form>
-                <div>
-                    <label for="newPasskeyDescription">New passkey description: </label>
-                    <input id="newPasskeyDescription" required />
-                </div>
-                <button type="button" id="addPasskeyButton">Add a passkey</button>
-            </form>
-            <button id="deleteAccountLink">Delete My Account</button>
+            <div class="field">
+                <label for="newPasskeyDescription">New passkey description</label>
+                <input id="newPasskeyDescription" required />
+            </div>
+            <button type="button" id="addPasskeyButton">Add a passkey</button>
+            <h2>Account Management</h2>
+            <button id="deleteAccountButton">Delete Account</button>
         </div>
         <p id="errorText"></p>
     </body>
@@ -72,12 +78,13 @@
 
                 for (const passkey of json) {
                     const listItem = document.createElement('li');
+                    listItem.className = 'passkey';
 
-                    const lastUsedHTML = passkey.lastUsedTimestamp
-                        ? `<p>Last used at: ${formatTimestamp(passkey.lastUsedTimestamp)}</p>`
-                        : '<p>Never used</p>';
+                    const lastUsedText = passkey.lastUsedTimestamp
+                        ? `Last used on ${formatTimestamp(passkey.lastUsedTimestamp)}`
+                        : 'Never used';
 
-                    listItem.innerHTML = `<p>${passkey.description}</p><p>Created at: ${formatTimestamp(passkey.createdTimestamp)}</p>${lastUsedHTML}`;
+                    listItem.innerHTML = `<div><div class="description">${passkey.description}</div><div class="createdAt">Created on ${formatTimestamp(passkey.createdTimestamp)}</div><div class="lastUsed">${lastUsedText}</div></div>`;
 
                     // Don't allow deletion of the only passkey a user has.
                     if (json.length > 1) {
@@ -101,8 +108,8 @@
             if (response.ok) {
                 const json = await response.json();
                 document.getElementById('addPasskeyButton').setAttribute(USER_HANDLE_ATTRIBUTE_NAME, json.userHandle);
-                document.getElementById('username').textContent = json.username;
-                document.getElementById('displayName').textContent = json.displayName;
+                document.getElementById('username').value = json.username;
+                document.getElementById('displayName').value = json.displayName;
 
                 await getPasskeys();
             } else {
@@ -114,8 +121,13 @@
 
         async function addPasskey() {
             const userHandle = toArrayBuffer(document.getElementById('addPasskeyButton').getAttribute(USER_HANDLE_ATTRIBUTE_NAME));
-            const username = document.getElementById('username').textContent;
-            const displayName = document.getElementById('displayName').textContent
+            const username = document.getElementById('username').value;
+            const displayName = document.getElementById('displayName').value
+            const descriptionInput = document.getElementById('newPasskeyDescription');
+
+            if (!descriptionInput.reportValidity()) {
+                return;
+            }
 
             const passkey = await generatePasskey(userHandle, username, displayName);
 
@@ -157,6 +169,6 @@
         }
 
         document.getElementById('addPasskeyButton').addEventListener('click', addPasskey);
-        document.getElementById('deleteAccountLink').addEventListener('click', deleteAccount);
+        document.getElementById('deleteAccountButton').addEventListener('click', deleteAccount);
     </script>
 </html>

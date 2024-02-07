@@ -7,13 +7,14 @@
         <link href="/style.css" rel="stylesheet" />
     </head>
     <body>
+        <h1>Sign Up</h1>
         <form id="signUpForm" action="/api/user" method="post">
             <div>
-                <label for="username">Username: </label>
+                <label for="username">Username</label>
                 <input id="username" name="username" required />
             </div>
             <div>
-                <label for="displayName">Display name: </label>
+                <label for="displayName">Display name</label>
                 <input id="displayName" name="displayName" />
             </div>
             <button type="button" id="signUpButton">Sign Up</button>
@@ -21,7 +22,7 @@
         </form>
     </body>
     <script type="module">
-        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, generatePasskey, postJson } from './browser.js';
+        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, showError, handlePasskeysNotSupported, generatePasskey, postJson } from './browser.js';
 
         function generateUserHandle() {
             // https://www.w3.org/TR/webauthn-3/#sctn-user-handle-privacy
@@ -34,7 +35,14 @@
             const username = document.getElementById('username').value;
             const displayName = document.getElementById('displayName').value
 
-            const passkey = await generatePasskey(userHandle, username, displayName)
+            let passkey;
+            try {
+                passkey = await generatePasskey(userHandle, username, displayName)
+            } catch(err) {
+                console.error('Failed to get credential', err);
+                showError('Failed to create passkey!');
+                return;
+            }
 
             const response = await postJson('/api/user', {
                 userHandle: toBase64(userHandle),
@@ -51,17 +59,17 @@
         }
 
         arePasskeysSupported().then(async result => {
+            const button = document.getElementById('signUpButton');
+
             if (!result) {
                 handlePasskeysNotSupported();
+                button.classList.add('disabled');
                 return;
             }
 
             console.log('Your browser appears to support passkeys, enabling signup.');
 
-            const button = document.getElementById('signUpButton');
-
             button.addEventListener('click', onSignUp);
-            button.style.visibility = 'visible';
         });
     </script>
 </html>

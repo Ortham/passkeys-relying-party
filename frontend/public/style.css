@@ -1,10 +1,175 @@
 #errorText {
-    color: red;
+    visibility: hidden;
+    background-color: #BDBDBD;
+    padding: 1em;
+    border: 0.15em solid #E7363C;
+    border-radius: 0.25em;
 }
 
-form > div {
-    margin: 0.5em 0;
-}
 .disabled {
     pointer-events: none;
+}
+
+body {
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    background-color: #E0e0e0;
+}
+body[hidden] {
+    visibility: hidden;
+}
+
+h1 {
+    text-align: center;
+}
+
+#notLoggedInItems:not([hidden]),
+#loggedInItems:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.button,
+button {
+    font-size: 1.5rem;
+    display: table-cell;
+    background-color: #64B47C;
+    margin: 1em 2em;
+    text-decoration: none;
+    color: black;
+    text-align: center;
+    box-sizing: border-box;
+    height: 4em;
+    line-height: 4em;
+    width: 7em;
+    box-shadow: 0.4em 0.4em #029A53;
+    position: relative;
+    top: 0em;
+    left: 0em;
+    transition: all 0.1s;
+
+    border: none;
+
+}
+
+.button.disabled,
+button.disabled {
+    opacity: 0.8;
+}
+
+.button:hover,
+button:hover {
+    top: 0.2em;
+    box-shadow: 0.2em 0.2em #029A53;
+}
+
+.button:active,
+button:active {
+    top: 0.4em;
+    box-shadow: none;
+    transition: none;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1em;
+    width: 100%;
+}
+label {
+    display: block;
+    margin-bottom: 0.5em;
+}
+input {
+    display: block;
+    height: 2em;
+    font-size: 1em;
+    padding: 0 0.5em;
+}
+form > div,
+.field {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-bottom: 2em;
+    width: 20em;
+}
+.field + button {
+    margin-top: 0;
+}
+
+#profile {
+    display: flex;
+    flex-direction: column;
+}
+#profile > h1 {
+    text-align: left;
+}
+
+#passkeys {
+    list-style-type: none;
+    border: 0.15em solid #BDBDBD;
+    border-radius: 0.25em;
+    padding: 0;
+    margin-bottom: 3em;
+}
+.passkey {
+    background-color: #EEEEEE;
+    border-bottom: 0.1em solid #BDBDBD;
+    padding: 1em;
+    display: flex;
+}
+.passkey:last-child {
+    border-bottom: none;
+}
+.passkey > div {
+    flex-grow: 1;
+}
+.passkey > button {
+    font-size: 1em;
+    line-height: inherit;
+    margin-top: 0;
+    margin-bottom: 0;
+    margin-right: 0;
+}
+.passkey .description {
+    margin-bottom: 1em;
+}
+.passkey .createdAt {
+    margin-bottom: 0.5em;
+}
+#addPasskeyButton {
+    font-size: 1em;
+    width: 8em;
+    margin-left: 0;
+}
+.passkey > button {
+    align-self: center;
+}
+
+.passkey > button,
+#deleteAccountButton {
+    background-color: #EF4040;
+    box-shadow: 0.4em 0.4em #B31312;
+}
+
+#deleteAccountButton {
+    font-size: 1em;
+    width: 10em;
+    margin-left: 0;
+    background-color: #EF4040;
+    box-shadow: 0.4em 0.4em #B31312;
+}
+
+.passkey > button:hover,
+#deleteAccountButton:hover {
+    box-shadow: 0.2em 0.2em #B31312;
 }

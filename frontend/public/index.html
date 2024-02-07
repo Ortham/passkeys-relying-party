@@ -7,19 +7,19 @@
         <link href="/style.css" rel="stylesheet" />
     </head>
     <body hidden>
-        <p>Welcome, please select the relevant option:</p>
-        <ul id="notLoggedInItems">
-            <li><a href="/signUp.html">Sign Up</a></li>
-            <li><a id="signInButton" href="#">Sign In</a></li>
-        </ul>
-        <ul id="loggedInItems">
-            <li><a href="/account.html">My Profile</a></li>
-            <li><a id="logoutLink" href="#">Logout</a></li>
-        </ul>
+        <h1>Passkeys Demo</h1>
+        <div id="notLoggedInItems">
+            <a class="button" href="/signUp.html" draggable="false">Sign Up</a>
+            <button id="signInButton">Sign In</button>
+        </div>
+        <div id="loggedInItems">
+            <a class="button" href="/account.html" draggable="false">My Account</a>
+            <button id="logoutLink">Logout</button>
+        </div>
         <p id="errorText"></p>
     </body>
     <script type="module">
-        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, handlePasskeysNotSupported, postJson } from './browser.js';
+        import { arePasskeysSupported, toArrayBuffer, toBase64, getChallenge, showError, handlePasskeysNotSupported, postJson } from './browser.js';
 
         function toggleItems(isLoggedIn) {
             document.getElementById('notLoggedInItems').hidden = isLoggedIn;
@@ -38,12 +38,17 @@
 
             console.log('Requesting credential...');
 
-            const credential = await navigator.credentials.get({
-                publicKey: passkeyRequestOptions,
-                signal: abortController.signal,
-                // Conditional mediation / autofill UI doesn't work on Windows 10 with Windows Hello.
-                //mediation: 'conditional'
-            });
+            let credential;
+            try {
+                credential = await navigator.credentials.get({
+                    publicKey: passkeyRequestOptions,
+                    signal: abortController.signal
+                });
+            } catch (err) {
+                console.error('Failed to get credential', err);
+                showError('Failed to sign in!');
+                return;
+            }
 
             console.log('Got credential:', credential);
 
@@ -95,7 +100,7 @@
                 document.getElementById('signInButton').addEventListener('click', onSignIn);
             } else {
                 handlePasskeysNotSupported();
-                for (const element of document.getElementsByTagName('a')) {
+                for (const element of document.querySelectorAll('a, button')) {
                     element.classList.add('disabled');
                 }
             }

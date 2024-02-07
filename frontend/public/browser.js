@@ -35,9 +35,15 @@ export async function getChallenge() {
     return toArrayBuffer(body.challenge);
 }
 
+export function showError(text) {
+    const element = document.getElementById('errorText');
+    element.textContent = text;
+    element.style.visibility = 'visible';
+}
+
 export function handlePasskeysNotSupported() {
     console.error('Your web browser does not support passkeys!');
-    document.getElementById('errorText').textContent = 'Your web browser does not appear to support passkeys!';
+    showError('Your web browser does not appear to support passkeys!');
 }
 
 export async function generatePasskey(userHandle, username, userDisplayName) {
