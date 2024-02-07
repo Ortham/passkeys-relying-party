@@ -424,7 +424,9 @@ class DynamoDbDatabase implements Database {
         const session = await this.get(params);
         if (session !== undefined && !hasSessionExpired(session as Session)) {
             session['userId'] = Buffer.from(session['userId']);
-            session['challenge']['value'] = Buffer.from(session['challenge']['value']);
+            if (session['challenge'] !== undefined) {
+                session['challenge']['value'] = Buffer.from(session['challenge']['value']);
+            }
 
             return session as Session;
         }
