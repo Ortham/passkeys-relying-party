@@ -346,9 +346,12 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref SessionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
       Environment:
         Variables:
           SESSIONS_TABLE_NAME: !Ref SessionsTable
+          USERS_TABLE_NAME: !Ref UsersTable
       Events:
         Api:
           Type: Api
