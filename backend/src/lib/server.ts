@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer';
 import { readFile } from 'node:fs/promises';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import assert, { AssertionError } from 'node:assert';
-import { createChallenge, getOrCreateSession, getProfile, logout } from './session.js';
+import { createChallenge, getOrCreateSession, getProfile, getSessionId, logout } from './session.js';
 import { createUser } from '../handlers/createUser.js';
 import { handleSignIn } from '../handlers/signIn.js';
 import { deleteUser } from '../handlers/deleteUser.js';
@@ -47,7 +47,8 @@ function readBody(req: IncomingMessage): Promise<string> {
     });
 }
 
-async function serveChallenge(res: ServerResponse, sessionId: string) {
+async function serveChallenge(req: IncomingMessage, res: ServerResponse) {
+    const sessionId = await setSessionCookie(req, res);
     const challenge = await createChallenge(sessionId);
 
     res.writeHead(200, {'Content-Type': 'application/json'});
@@ -157,7 +158,7 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
     try {
         assert(req.url, 'The request has no URL');
 
-        const sessionId = await setSessionCookie(req, res);
+        const sessionId = getSessionId(req.headers);
 
         const url = new URL(req.url, `http://${req.headers.host}`);
         if (req.method === 'GET') {
@@ -172,14 +173,18 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
             } else if (url.pathname === '/browser.js') {
                 await serveFile(res, 'browser.js', JAVASCRIPT);
             } else if (url.pathname === '/api/challenge') {
-                await serveChallenge(res, sessionId);
+                await serveChallenge(req, res);
             } else if (url.pathname === '/api/logout') {
+                assert(sessionId);
                 await handleLogout(res, sessionId);
             } else if (url.pathname === '/api/profile') {
+                assert(sessionId);
                 await handleGetProfile(res, sessionId);
             } else if (url.pathname === '/api/passkeys') {
+                assert(sessionId);
                 await handleGetPasskeys(res, sessionId);
             } else if (url.pathname === '/api/session') {
+                assert(sessionId);
                 await handleGetSession(res, sessionId);
             } else {
                 res.writeHead(404);
@@ -187,10 +192,13 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
             }
         } else if (req.method === 'POST') {
             if (url.pathname === '/api/user') {
+                assert(sessionId);
                 await handleSignUpSubmit(req, res, sessionId);
             } else if (url.pathname === '/api/signIn') {
+                assert(sessionId);
                 await handleSignInSubmit(req, res, sessionId);
             } else if (url.pathname === '/api/passkeys') {
+                assert(sessionId);
                 await handleCreatePasskey(req, res, sessionId);
             } else {
                 res.writeHead(404);
@@ -198,10 +206,12 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
             }
         } else if (req.method === 'DELETE') {
             if (url.pathname === '/api/user') {
+                assert(sessionId);
                 await handleDeleteUser(res, sessionId);
             } else if (url.pathname.startsWith('/api/passkeys/')) {
                 const passkeyId = url.pathname.split('/').at(-1);
                 assert(passkeyId !== undefined && passkeyId.length > 0, 'The request path has no passkey ID');
+                assert(sessionId);
                 await handleDeletePasskey(res, sessionId, passkeyId);
             } else {
                 res.writeHead(404);
