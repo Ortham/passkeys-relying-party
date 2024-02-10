@@ -18,7 +18,7 @@ export async function getSession(sessionId: string) {
 
 export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _context) => {
     const sessionId = getSessionId(event.headers);
-    assert(sessionId !== undefined);
+    assert(sessionId !== undefined, 'Session ID is not defined when getting session');
 
     const session = await getSession(sessionId);
 
