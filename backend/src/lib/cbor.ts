@@ -3,9 +3,8 @@
 // https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#ctap2-canonical-cbor-encoding-form
 // this makes it feasible to implement parsing from scratch.
 import assert from 'node:assert';
-import { Buffer } from 'node:buffer';
 
-export type DecodedValue = bigint | Buffer | string | DecodedValue[] | Map<DecodedValue, DecodedValue> | boolean | null | undefined | number;
+export type DecodedValue = bigint | Uint8Array | string | DecodedValue[] | Map<DecodedValue, DecodedValue> | boolean | null | undefined | number;
 
 const CBOR_TYPE_UNSIGNED_INT = 0;
 const CBOR_TYPE_NEGATIVE_INT = 1;
@@ -24,7 +23,7 @@ function getTypeInfo(byte: number) {
     return byte & 0b1_1111;
 }
 
-function getDataLength(buffer: Buffer) {
+function getDataLength(buffer: Uint8Array) {
     // The first byte is the type and arg.
     assert(buffer.byteLength > 0, "Can't get data length with no data");
     const info = getTypeInfo(buffer[0]!);
@@ -82,7 +81,7 @@ function isSafeAsNumber(bigint: bigint): boolean {
     return BigInt(Number(bigint)) === bigint;
 }
 
-function decodeUnsignedInt(buffer: Buffer): { value: bigint | number; end: bigint; } {
+function decodeUnsignedInt(buffer: Uint8Array): { value: bigint | number; end: bigint; } {
     assert(buffer.byteLength > 0, "Can't decode unsigned int from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_UNSIGNED_INT);
 
@@ -97,7 +96,7 @@ function decodeUnsignedInt(buffer: Buffer): { value: bigint | number; end: bigin
     };
 }
 
-function decodeNegativeInt(buffer: Buffer): { value: bigint | number; end: bigint; } {
+function decodeNegativeInt(buffer: Uint8Array): { value: bigint | number; end: bigint; } {
     assert(buffer.byteLength > 0, "Can't decode negative int from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_NEGATIVE_INT);
 
@@ -112,7 +111,7 @@ function decodeNegativeInt(buffer: Buffer): { value: bigint | number; end: bigin
     };
 }
 
-function decodeByteString(buffer: Buffer): { value: Buffer; end: bigint; } {
+function decodeByteString(buffer: Uint8Array): { value: Uint8Array; end: bigint; } {
     assert(buffer.byteLength > 0, "Can't decode byte string from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_BYTE_STRING);
 
@@ -124,20 +123,22 @@ function decodeByteString(buffer: Buffer): { value: Buffer; end: bigint; } {
     };
 }
 
-function decodeTextString(buffer: Buffer): { value: string; end: bigint; } {
+function decodeTextString(buffer: Uint8Array): { value: string; end: bigint; } {
     // First byte is the type and arg
     assert(buffer.byteLength > 0, "Can't decode text string from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_TEXT_STRING);
 
     const { start, end } = getDataLength(buffer);
 
+    buffer = buffer.subarray(Number(start), Number(end))
+
     return {
-        value: buffer.subarray(Number(start), Number(end)).toString('utf8'),
+        value: new TextDecoder().decode(buffer),
         end
     };
 }
 
-function decodeArray(buffer: Buffer): { value: DecodedValue[]; end: bigint; } {
+function decodeArray(buffer: Uint8Array): { value: DecodedValue[]; end: bigint; } {
     assert(buffer.byteLength > 0, "Can't decode array from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_ARRAY);
 
@@ -160,7 +161,7 @@ function decodeArray(buffer: Buffer): { value: DecodedValue[]; end: bigint; } {
     }
 }
 
-function decodeMap(buffer: Buffer): { value: Map<DecodedValue, DecodedValue>; end: bigint; } {
+function decodeMap(buffer: Uint8Array): { value: Map<DecodedValue, DecodedValue>; end: bigint; } {
     assert(buffer.byteLength > 0, "Can't decode map from no data");
     assert.strictEqual(getType(buffer[0]!), CBOR_TYPE_MAP);
 
@@ -186,11 +187,11 @@ function decodeMap(buffer: Buffer): { value: Map<DecodedValue, DecodedValue>; en
     };
 }
 
-function decodeTag(_buffer: Buffer): never {
+function decodeTag(_buffer: Uint8Array): never {
     throw new Error('Tags are not supported in WebAuthn CBOR data');
 }
 
-function decodeFloat(buffer: Buffer): { value: boolean | null | undefined | number; end: bigint; } {
+function decodeFloat(buffer: Uint8Array): { value: boolean | null | undefined | number; end: bigint; } {
     assert(buffer.byteLength > 0, "Can't decode float or simple type from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_FLOAT);
 
@@ -288,7 +289,7 @@ function decodeFloat(buffer: Buffer): { value: boolean | null | undefined | numb
     throw new Error('Unexpected float type info value: ' + info);
 }
 
-function decodeDataItem(buffer: Buffer): { value: DecodedValue; end: bigint; } {
+function decodeDataItem(buffer: Uint8Array): { value: DecodedValue; end: bigint; } {
     assert(buffer.byteLength > 0, "Can't decode unknown data item from no data");
     const type = getType(buffer[0]!);
 
@@ -314,7 +315,7 @@ function decodeDataItem(buffer: Buffer): { value: DecodedValue; end: bigint; } {
     }
 }
 
-export function parseCBOR(buffer: Buffer): DecodedValue[] {
+export function parseCBOR(buffer: Uint8Array): DecodedValue[] {
     let items = [];
 
     let offset = 0;
@@ -328,7 +329,7 @@ export function parseCBOR(buffer: Buffer): DecodedValue[] {
     return items;
 }
 
-export function parseAttestationObject(attestationObject: Buffer) {
+export function parseAttestationObject(attestationObject: Uint8Array) {
     const items = parseCBOR(attestationObject);
     assert.strictEqual(items.length, 1, 'Only expected a single CBOR data item in the attestation object');
 
@@ -342,7 +343,7 @@ export function parseAttestationObject(attestationObject: Buffer) {
     assert(attStmt instanceof Map, 'Expected fmt to be a map');
 
     const authData = decoded.get('authData');
-    assert(authData instanceof Buffer, 'Expected authData to be a buffer');
+    assert(authData instanceof Uint8Array, 'Expected authData to be a Uint8Array');
 
     return { fmt, attStmt, authData };
 }

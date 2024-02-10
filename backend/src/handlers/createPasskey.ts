@@ -35,7 +35,7 @@ function decodeAttestationObject(attestationObject: Buffer): AttestationObject {
     // https://w3c.github.io/webauthn/#attestation-object
     const { fmt, attStmt, authData } = parseAttestationObject(attestationObject);
 
-    return { fmt, attStmt, ...parseAuthData(authData) };
+    return { fmt, attStmt, ...parseAuthData(Buffer.from(authData)) };
 }
 
 function validateAttestationObject(attestationObject: AttestationObject, expectedRpIdHash: ArrayBuffer): asserts attestationObject is ValidatedAttestationObject {
