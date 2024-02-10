@@ -84,7 +84,7 @@ function hasSessionExpired(session: Session) {
 }
 
 function hasChallengeExpired(challenge: Required<Session>['challenge']) {
-    return challenge.ttl < getCurrentTimestamp();
+    return challenge.ttl <= getCurrentTimestamp();
 }
 
 function getSessionExpiryTimestamp() {
