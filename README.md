@@ -22,18 +22,15 @@ Unfortunately, Windows Hello on Windows 10 does not provide a practical UI for m
 Limitations:
 
 - Only supports ES256 and RS256 signing algorithms
-- Does not support attestation or client extensions
-- Conditional mediation is commented out because it doesn't work properly on Windows 10 with Windows Hello (and is untested on other platforms).
-- There's no UI that acknowledges successful sign in, sign up or logout
-- The index UI is not conditional (e.g. Sign In and Logout are both visible at the same time)
+- Does not support attestation or extensions
 
 Things that caught me by surprise:
 
 - localhost counts as a secure context (last time it was relevant to me I think browsers were still inconsistent about what was allowed on localhost).
 - Conditional mediation not working on Windows 10 with Windows Hello - I think that's because the APIs that support it were only added to Windows 11.
 - There's no JavaScript standard library function for turning an ArrayBuffer into base64 or base64url, or for parsing them into an ArrayBuffer.
-- Although [AuthenticatorAttestationResponse.getPublicKey()](https://www.w3.org/TR/webauthn-3/#dom-authenticatorattestationresponse-getpublickey) is implemented in Firefox, its return value is invalid according to SubtleCrypto.importKey(). The same function's return value is fine in Edge. `getPublicKey()` not working as expected meant that I needed to parse the attestationObject and pull in the CBOR library dependency to help with that.
-- ES256 signatures are encoded using DER and need to be decoded before verification
+- Although [AuthenticatorAttestationResponse.getPublicKey()](https://www.w3.org/TR/webauthn-3/#dom-authenticatorattestationresponse-getpublickey) is implemented in Firefox, its return value is invalid according to SubtleCrypto.importKey(). The same function's return value is fine in Edge. `getPublicKey()` not working as expected meant that I needed to parse the attestationObject and write a CBOR parser to do that.
+- ES256 signatures are encoded using DER and need to be decoded before verification.
 
 
 ## Running locally
