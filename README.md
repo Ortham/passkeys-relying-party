@@ -2,7 +2,7 @@
 
 This is a toy implementation of a basic sign up and sign in flow using passkeys, which I wrote to help check my understanding of the flows. **It is not safe for production use.** Data is not encrypted in transit, there are no guards against stored data getting overwritten improperly, and no doubt there are other security issues too. It's a relatively quick-and-dirty implementation without much effort spent on things like code quality, error handling or writing tests.
 
-The project can be run as a local server, in which case all data is only held in memory (so if something goes wrong the server will probably crash and forget everything), or deployed to AWS. Third-party dependencies are minimal, with libraries only added for decoding CBOR and interacting with DynamoDB, and tooling limited to TypeScript and esbuild.
+The project can be run as a local server, in which case all data is only held in memory (so if something goes wrong the server will probably crash and forget everything), or deployed to AWS. Third-party dependencies are minimal, with libraries only added for TypeScript and AWS deployment and integration.
 
 The local server has been tested with Node.js v20.11.0, Deno v1.40.2 and Bun v1.0.25. The AWS deployment has been tested with the following clients:
 

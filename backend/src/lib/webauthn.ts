@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { decodeMultiple } from 'cbor-x/decode';
 import { ALLOWED_ORIGINS } from './config.js';
 import { isBitFlagSet } from './util.js';
-import { CoseKey, validatePublicKey } from './cose.js';
+import { CoseKey, mapToCoseKey } from './cose.js';
+import { parseCBOR } from './cbor.js';
 
 const FLAG_USER_PRESENT = 0b0001;
 export const FLAG_USER_VERIFIED = 0b0100;
@@ -73,24 +73,22 @@ export function parseAuthData(authData: Buffer): AuthData {
 
         // Next field is the credential public key, but it may be followed by an extensions map.
         // The TypeScript types for decodeMultiple are wrong.
-        const remaining = decodeMultiple(authData.subarray(55 + credentialIdLength)) as unknown;
-        assert(Array.isArray(remaining), "Auth data does not end with an array of CBOR entries");
+        const remaining = parseCBOR(authData.subarray(55 + credentialIdLength));
 
         if (hasExtensionData) {
             assert.strictEqual(remaining.length, 2, 'The AuthData structure has an unexpected number of fields');
 
-            credentialPublicKey = remaining[0];
+            assert(remaining[0] instanceof Map);
+            credentialPublicKey = mapToCoseKey(remaining[0]);
             extensions = remaining[1];
         } else {
             assert.strictEqual(remaining.length, 1, 'The AuthData structure has an unexpected number of fields');
 
-            credentialPublicKey = remaining[0];
+            assert(remaining[0] instanceof Map);
+            credentialPublicKey = mapToCoseKey(remaining[0]);
         }
-
-        validatePublicKey(credentialPublicKey);
     } else if (hasExtensionData) {
-        const remaining = decodeMultiple(authData.subarray(37)) as unknown;
-        assert(Array.isArray(remaining), "Auth data does not end with an array of CBOR entries");
+        const remaining = parseCBOR(authData.subarray(37));
 
         assert.strictEqual(remaining.length, 1, 'The AuthData structure has an unexpected number of fields');
 

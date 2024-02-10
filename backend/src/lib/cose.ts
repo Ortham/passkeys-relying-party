@@ -1,5 +1,6 @@
 import assert from "node:assert";
 import { Buffer } from 'node:buffer';
+import { DecodedValue } from "./cbor.js";
 
 const WEBAUTHN_ALG_ES256 = -7;
 const WEBAUTHN_ALG_RS256 = -257;
@@ -73,11 +74,16 @@ function rsaCoseToJwk(key: RsaCoseKey): JsonWebKey {
     };
 }
 
-export function validatePublicKey(publicKey: unknown): asserts publicKey is CoseKey {
+export function mapToCoseKey(map: Map<DecodedValue, DecodedValue>): CoseKey {
+    console.log('Decoded COSE key is', map);
+    const publicKey = Object.fromEntries(map);
+
     assert(publicKey !== null, 'The public key is null');
     assert(typeof publicKey === 'object', 'The public key is not an object');
     assert('1' in publicKey, 'The public key\'s kty field is missing');
     assert('3' in publicKey, 'The public key\'s alg field is missing');
+
+    return publicKey;
 }
 
 export function coseToJwk(key: CoseKey): JsonWebKey {

@@ -14,7 +14,6 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.502.0",
     "@aws-sdk/lib-dynamodb": "^3.502.0",
-    "cbor-x": "^1.5.8",
     "esbuild": "^0.20.0"
   },
   "devDependencies": {

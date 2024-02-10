@@ -9,7 +9,6 @@
       "npm:@types/aws-lambda@^8.10.133": "npm:@types/aws-lambda@8.10.133",
       "npm:@types/node@^20.11.7": "npm:@types/node@20.11.10",
       "npm:aws-lambda": "npm:aws-lambda@1.0.7",
-      "npm:cbor-x@^1.5.8": "npm:cbor-x@1.5.8",
       "npm:esbuild@^0.20.0": "npm:esbuild@0.20.0",
       "npm:typescript@^5.3.3": "npm:typescript@5.3.3"
     },
@@ -492,30 +491,6 @@
         "dependencies": {
           "tslib": "tslib@2.6.2"
         }
-      },
-      "@cbor-extract/cbor-extract-darwin-arm64@2.2.0": {
-        "integrity": "sha512-P7swiOAdF7aSi0H+tHtHtr6zrpF3aAq/W9FXx5HektRvLTM2O89xCyXF3pk7pLc7QpaY7AoaE8UowVf9QBdh3w==",
-        "dependencies": {}
-      },
-      "@cbor-extract/cbor-extract-darwin-x64@2.2.0": {
-        "integrity": "sha512-1liF6fgowph0JxBbYnAS7ZlqNYLf000Qnj4KjqPNW4GViKrEql2MgZnAsExhY9LSy8dnvA4C0qHEBgPrll0z0w==",
-        "dependencies": {}
-      },
-      "@cbor-extract/cbor-extract-linux-arm64@2.2.0": {
-        "integrity": "sha512-rQvhNmDuhjTVXSPFLolmQ47/ydGOFXtbR7+wgkSY0bdOxCFept1hvg59uiLPT2fVDuJFuEy16EImo5tE2x3RsQ==",
-        "dependencies": {}
-      },
-      "@cbor-extract/cbor-extract-linux-arm@2.2.0": {
-        "integrity": "sha512-QeBcBXk964zOytiedMPQNZr7sg0TNavZeuUCD6ON4vEOU/25+pLhNN6EDIKJ9VLTKaZ7K7EaAriyYQ1NQ05s/Q==",
-        "dependencies": {}
-      },
-      "@cbor-extract/cbor-extract-linux-x64@2.2.0": {
-        "integrity": "sha512-cWLAWtT3kNLHSvP4RKDzSTX9o0wvQEEAj4SKvhWuOVZxiDAeQazr9A+PSiRILK1VYMLeDml89ohxCnUNQNQNCw==",
-        "dependencies": {}
-      },
-      "@cbor-extract/cbor-extract-win32-x64@2.2.0": {
-        "integrity": "sha512-l2M+Z8DO2vbvADOBNLbbh9y5ST1RY5sqkWOg/58GkUPBYou/cuNZ68SGQ644f1CvZ8kcOxyZtw06+dxWHIoN/w==",
-        "dependencies": {}
       },
       "@esbuild/aix-ppc64@0.20.0": {
         "integrity": "sha512-fGFDEctNh0CcSwsiRPxiaqX0P5rq+AqE0SRhYGZ4PX46Lg1FNR6oCxJghf8YgY0WQEgQuh3lErUFE4KxLeRmmw==",
@@ -1022,24 +997,6 @@
           "set-function-length": "set-function-length@1.2.0"
         }
       },
-      "cbor-extract@2.2.0": {
-        "integrity": "sha512-Ig1zM66BjLfTXpNgKpvBePq271BPOvu8MR0Jl080yG7Jsl+wAZunfrwiwA+9ruzm/WEdIV5QF/bjDZTqyAIVHA==",
-        "dependencies": {
-          "@cbor-extract/cbor-extract-darwin-arm64": "@cbor-extract/cbor-extract-darwin-arm64@2.2.0",
-          "@cbor-extract/cbor-extract-darwin-x64": "@cbor-extract/cbor-extract-darwin-x64@2.2.0",
-          "@cbor-extract/cbor-extract-linux-arm": "@cbor-extract/cbor-extract-linux-arm@2.2.0",
-          "@cbor-extract/cbor-extract-linux-arm64": "@cbor-extract/cbor-extract-linux-arm64@2.2.0",
-          "@cbor-extract/cbor-extract-linux-x64": "@cbor-extract/cbor-extract-linux-x64@2.2.0",
-          "@cbor-extract/cbor-extract-win32-x64": "@cbor-extract/cbor-extract-win32-x64@2.2.0",
-          "node-gyp-build-optional-packages": "node-gyp-build-optional-packages@5.1.1"
-        }
-      },
-      "cbor-x@1.5.8": {
-        "integrity": "sha512-gc3bHBsvG6GClCY6c0/iip+ghlqizkVp+TtaL927lwvP4VP9xBdi1HmqPR5uj/Mj/0TOlngMkIYa25wKg+VNrQ==",
-        "dependencies": {
-          "cbor-extract": "cbor-extract@2.2.0"
-        }
-      },
       "commander@3.0.2": {
         "integrity": "sha512-Gar0ASD4BDyKC4hl4DwHqDrmvjoxWKZigVnAbn5H1owvm4CxCPdb0HQDehwNYMJpla5+M2tPmPARzhtYuwpHow==",
         "dependencies": {}
@@ -1051,10 +1008,6 @@
           "gopd": "gopd@1.0.1",
           "has-property-descriptors": "has-property-descriptors@1.0.1"
         }
-      },
-      "detect-libc@2.0.2": {
-        "integrity": "sha512-UX6sGumvvqSaXgdKGUsgZWqcUyIXZ/vZTrlRT/iobiKhGL0zL4d3osHj3uqllWJK+i+sixDS/3COVEOFbupFyw==",
-        "dependencies": {}
       },
       "esbuild@0.20.0": {
         "integrity": "sha512-6iwE3Y2RVYCME1jLpBqq7LQWK3MW6vjV2bZy6gt/WrqkY+WE74Spyc0ThAOYpMtITvnjX09CrC6ym7A/m9mebA==",
@@ -1209,12 +1162,6 @@
           "obliterator": "obliterator@1.6.1"
         }
       },
-      "node-gyp-build-optional-packages@5.1.1": {
-        "integrity": "sha512-+P72GAjVAbTxjjwUmwjVrqrdZROD4nf8KgpBoDxqXXTiYZZt/ud60dE5yvCSr9lRO8e8yv6kgJIC0K0PfZFVQw==",
-        "dependencies": {
-          "detect-libc": "detect-libc@2.0.2"
-        }
-      },
       "obliterator@1.6.1": {
         "integrity": "sha512-9WXswnqINnnhOG/5SLimUlzuU1hFJUc8zkwyD59Sd+dPOMf05PmnYG/d6Q7HZ+KmgkZJa1PxRso6QdM3sTNHig==",
         "dependencies": {}
@@ -1333,7 +1280,6 @@
         "npm:@aws-sdk/lib-dynamodb@^3.502.0",
         "npm:@types/aws-lambda@^8.10.133",
         "npm:@types/node@^20.11.7",
-        "npm:cbor-x@^1.5.8",
         "npm:esbuild@^0.20.0",
         "npm:typescript@^5.3.3"
       ]

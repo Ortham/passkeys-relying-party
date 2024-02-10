@@ -1,22 +1,22 @@
 import assert from 'node:assert';
 import { APIGatewayProxyEvent, Handler } from 'aws-lambda';
-import { decode } from 'cbor-x/decode';
 import { AuthData, ClientData, FLAG_BACKUP_ELIGIBILITY, FLAG_BACKUP_STATE, FLAG_USER_VERIFIED, parseAuthData, validateAuthData, validateClientData } from '../lib/webauthn.js';
 import { CoseKey, coseToJwk } from '../lib/cose.js';
 import { getSessionId } from '../lib/session.js';
 import { PasskeyData, User, database } from '../lib/database.js';
 import { RP_ID_HASH } from '../lib/config.js';
 import { getCurrentTimestamp, isBitFlagSet } from '../lib/util.js';
+import { parseAttestationObject } from '../lib/cbor.js';
 
 
 interface AttestationObject extends AuthData {
     fmt: unknown;
-    attStmt: unknown;
+    attStmt: Map<unknown, unknown>;
 }
 
 interface ValidatedAttestationObject extends AttestationObject {
     fmt: 'none';
-    attStmt: {};
+    attStmt: Map<unknown, unknown>;
     aaguid: Buffer;
     credentialIdLength: number;
     credentialId: Buffer;
@@ -33,15 +33,14 @@ export interface RequestBody {
 
 function decodeAttestationObject(attestationObject: Buffer): AttestationObject {
     // https://w3c.github.io/webauthn/#attestation-object
-    const { fmt, attStmt, authData } = decode(attestationObject);
+    const { fmt, attStmt, authData } = parseAttestationObject(attestationObject);
 
     return { fmt, attStmt, ...parseAuthData(authData) };
 }
 
 function validateAttestationObject(attestationObject: AttestationObject, expectedRpIdHash: ArrayBuffer): asserts attestationObject is ValidatedAttestationObject {
     assert.strictEqual(attestationObject.fmt, 'none', 'Assertion format is not none');
-    assert(typeof attestationObject.attStmt === 'object' && attestationObject.attStmt !== null, 'Assertion statement is not an object');
-    assert.strictEqual(Object.keys(attestationObject.attStmt).length, 0, 'Assertion statement is not empty');
+    assert.strictEqual(attestationObject.attStmt.size, 0, 'Assertion statement is not empty');
 
     validateAuthData(attestationObject, expectedRpIdHash, true);
 }
