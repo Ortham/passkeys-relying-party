@@ -30,13 +30,17 @@ function parseRequestBody(body: string): SignInBody {
     };
 }
 
-function getImportAlgorithm(jwk: JsonWebKey): RsaHashedImportParams | EcKeyImportParams {
+function getImportAlgorithm(jwk: JsonWebKey): AlgorithmIdentifier | RsaHashedImportParams | EcKeyImportParams {
     if (jwk.alg === 'RS256') {
         return { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' };
     }
 
     if (jwk.alg === 'ES256') {
         return { name: 'ECDSA', namedCurve: 'P-256' };
+    }
+
+    if (jwk.alg === 'EdDSA') {
+        return { name: 'Ed25519' };
     }
 
     throw new Error('Unrecognised algorithm ' + jwk.alg);
@@ -49,6 +53,10 @@ function getVerifyAlgorithm(jwk: JsonWebKey): AlgorithmIdentifier | EcdsaParams 
 
     if (jwk.alg === 'ES256') {
         return { name: 'ECDSA', hash: 'SHA-256' };
+    }
+
+    if (jwk.alg === 'EdDSA') {
+        return { name: 'Ed25519' };
     }
 
     throw new Error('Unrecognised algorithm ' + jwk.alg);
@@ -105,16 +113,12 @@ function decodeEcdsaSignature(signature: Buffer, expectedSignatureLength: number
 }
 
 function prepareSignature(jwk: JsonWebKey, signature: Buffer): Buffer {
-    if (jwk.alg === 'RS256') {
-        return signature;
-    }
-
     if (jwk.alg === 'ES256') {
         // An ECDSA signature is encoded as an ASN.1 DER Ecdsa-Sig-Value (WebAuthn spec section 6.5.6), but webcrypto.subtle.verify expects a raw 64-byte signature.
         return decodeEcdsaSignature(signature, 64);
     }
 
-    throw new Error('Unrecognised algorithm ' + jwk.alg);
+    return signature;
 }
 
 async function verify(jwk: JsonWebKey, signature: Buffer, signedData: Buffer): Promise<boolean> {

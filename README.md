@@ -21,7 +21,7 @@ Unfortunately, Windows Hello on Windows 10 does not provide a practical UI for m
 
 Limitations:
 
-- Only supports ES256 and RS256 signing algorithms
+- Only supports the ES256, EdDSA and RS256 signing algorithms (EdDSA is untested)
 - Does not support attestation or extensions
 
 Things that caught me by surprise:

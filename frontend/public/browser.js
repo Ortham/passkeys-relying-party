@@ -1,6 +1,7 @@
 const RP_NAME = 'Passkeys Demo';
 
 const WEBAUTHN_ALG_ES256 = -7;
+const WEBAUTHN_ALG_EDDSA = -8;
 const WEBAUTHN_ALG_RS256 = -257;
 
 export async function arePasskeysSupported() {
@@ -61,6 +62,7 @@ export async function generatePasskey(userHandle, username, userDisplayName) {
         },
         pubKeyCredParams: [
             { alg: WEBAUTHN_ALG_ES256, type: 'public-key' },
+            { alg: WEBAUTHN_ALG_EDDSA, type: 'public-key' },
             { alg: WEBAUTHN_ALG_RS256, type: 'public-key' }
         ],
         excludeCredentials: [],
