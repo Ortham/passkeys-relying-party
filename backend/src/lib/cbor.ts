@@ -191,6 +191,10 @@ function decodeTag(_buffer: Uint8Array): never {
     throw new Error('Tags are not supported in WebAuthn CBOR data');
 }
 
+function ldexp(float: number, exp: number) {
+    return float * Math.pow(2, exp);
+}
+
 function decodeFloat(buffer: Uint8Array): { value: boolean | null | undefined | number; end: bigint; } {
     assert(buffer.byteLength > 0, "Can't decode float or simple type from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_FLOAT);
@@ -236,10 +240,6 @@ function decodeFloat(buffer: Uint8Array): { value: boolean | null | undefined | 
     if (info === 25) {
         // big-endian 16-bit float in the following 2 bytes
         // Decode logic adapted from https://www.rfc-editor.org/rfc/rfc8949.html#half-precision
-
-        function ldexp(float: number, exp: number) {
-            return float * Math.pow(2, exp);
-        }
 
         assert(buffer.byteLength > 2, "Can't decode float16 from no data");
         const half = (buffer[1]! << 8) | buffer[2]!;
