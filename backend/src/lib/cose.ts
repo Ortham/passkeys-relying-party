@@ -2,9 +2,9 @@ import assert from "node:assert";
 import { Buffer } from 'node:buffer';
 import { DecodedValue } from "./cbor.js";
 
-const WEBAUTHN_ALG_ES256 = -7;
-const WEBAUTHN_ALG_EDDSA = -8;
-const WEBAUTHN_ALG_RS256 = -257;
+const COSE_ALG_ES256 = -7;
+const COSE_ALG_EDDSA = -8;
+const COSE_ALG_RS256 = -257;
 const COSE_EC_P256 = 1;
 const COSE_EC_ED25519 = 6;
 const COSE_KEY_TYPE_EC2 = 2;
@@ -20,7 +20,7 @@ export interface CoseKey {
 
 interface EcdsaCoseKey extends CoseKey {
     '1': typeof COSE_KEY_TYPE_EC2;
-    '3': typeof WEBAUTHN_ALG_ES256;
+    '3': typeof COSE_ALG_ES256;
     '-1': typeof COSE_EC_P256;
     '-2': Buffer;
     '-3': Buffer;
@@ -28,21 +28,21 @@ interface EcdsaCoseKey extends CoseKey {
 
 interface EddsaCoseKey extends CoseKey {
     '1': typeof COSE_KEY_TYPE_OKP;
-    '3': typeof WEBAUTHN_ALG_EDDSA;
+    '3': typeof COSE_ALG_EDDSA;
     '-1': typeof COSE_EC_ED25519;
     '-2': Buffer;
 }
 
 interface RsaCoseKey extends CoseKey {
     '1': typeof COSE_KEY_TYPE_RSA;
-    '3': typeof WEBAUTHN_ALG_RS256;
+    '3': typeof COSE_ALG_RS256;
     '-1': Buffer;
     '-2': Buffer;
 }
 
 function isEcdsaCoseKey(key: CoseKey): key is EcdsaCoseKey {
     return key['1'] === COSE_KEY_TYPE_EC2
-        && key['3'] === WEBAUTHN_ALG_ES256
+        && key['3'] === COSE_ALG_ES256
         && key['-1'] === COSE_EC_P256
         && Buffer.isBuffer(key['-2'])
         && Buffer.isBuffer(key['-3']);
@@ -50,14 +50,14 @@ function isEcdsaCoseKey(key: CoseKey): key is EcdsaCoseKey {
 
 function isEddsaCoseKey(key: CoseKey): key is EddsaCoseKey {
     return key['1'] === COSE_KEY_TYPE_OKP
-        && key['3'] === WEBAUTHN_ALG_EDDSA
+        && key['3'] === COSE_ALG_EDDSA
         && key['-1'] === COSE_EC_ED25519
         && Buffer.isBuffer(key['-2']);
 }
 
 function isRsaCoseKey(key: CoseKey): key is RsaCoseKey {
     return key['1'] === COSE_KEY_TYPE_RSA
-        && key['3'] === WEBAUTHN_ALG_RS256
+        && key['3'] === COSE_ALG_RS256
         && Buffer.isBuffer(key['-1'])
         && Buffer.isBuffer(key['-2']);
 }
