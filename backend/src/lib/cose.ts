@@ -22,44 +22,54 @@ interface EcdsaCoseKey extends CoseKey {
     '1': typeof COSE_KEY_TYPE_EC2;
     '3': typeof COSE_ALG_ES256;
     '-1': typeof COSE_EC_P256;
-    '-2': Buffer;
-    '-3': Buffer;
+    '-2': Uint8Array;
+    '-3': Uint8Array;
 }
 
 interface EddsaCoseKey extends CoseKey {
     '1': typeof COSE_KEY_TYPE_OKP;
     '3': typeof COSE_ALG_EDDSA;
     '-1': typeof COSE_EC_ED25519;
-    '-2': Buffer;
+    '-2': Uint8Array;
 }
 
 interface RsaCoseKey extends CoseKey {
     '1': typeof COSE_KEY_TYPE_RSA;
     '3': typeof COSE_ALG_RS256;
-    '-1': Buffer;
-    '-2': Buffer;
+    '-1': Uint8Array;
+    '-2': Uint8Array;
+}
+
+function toBase64Url(array: Uint8Array | Buffer): string {
+    if (Buffer.isBuffer(array)) {
+        return array.toString('base64url');
+    }
+
+    return btoa(String.fromCharCode(...array))
+        .replace(/+/g, '-')
+        .replace(/\//g, '_');
 }
 
 function isEcdsaCoseKey(key: CoseKey): key is EcdsaCoseKey {
     return key['1'] === COSE_KEY_TYPE_EC2
         && key['3'] === COSE_ALG_ES256
         && key['-1'] === COSE_EC_P256
-        && Buffer.isBuffer(key['-2'])
-        && Buffer.isBuffer(key['-3']);
+        && key['-2'] instanceof Uint8Array
+        && key['-3'] instanceof Uint8Array;
 }
 
 function isEddsaCoseKey(key: CoseKey): key is EddsaCoseKey {
     return key['1'] === COSE_KEY_TYPE_OKP
         && key['3'] === COSE_ALG_EDDSA
         && key['-1'] === COSE_EC_ED25519
-        && Buffer.isBuffer(key['-2']);
+        && key['-2'] instanceof Uint8Array;
 }
 
 function isRsaCoseKey(key: CoseKey): key is RsaCoseKey {
     return key['1'] === COSE_KEY_TYPE_RSA
         && key['3'] === COSE_ALG_RS256
-        && Buffer.isBuffer(key['-1'])
-        && Buffer.isBuffer(key['-2']);
+        && key['-1'] instanceof Uint8Array
+        && key['-2'] instanceof Uint8Array;
 }
 
 function ecdsaCoseToJwk(key: EcdsaCoseKey): JsonWebKey {
@@ -72,8 +82,8 @@ function ecdsaCoseToJwk(key: EcdsaCoseKey): JsonWebKey {
         key_ops: ['verify'],
         alg: 'ES256',
         crv: 'P-256',
-        x: key['-2'].toString('base64url'),
-        y: key['-3'].toString('base64url')
+        x: toBase64Url(key['-2']),
+        y: toBase64Url(key['-3'])
     };
 }
 
@@ -87,7 +97,7 @@ function eddsaCoseToJwk(key: EddsaCoseKey): JsonWebKey {
         key_ops: ['verify'],
         alg: 'EdDSA',
         crv: 'Ed25519',
-        x: key['-2'].toString('base64url')
+        x: toBase64Url(key['-2'])
     };
 }
 
@@ -100,8 +110,8 @@ function rsaCoseToJwk(key: RsaCoseKey): JsonWebKey {
         use: 'sig',
         key_ops: ['verify'],
         alg: 'RS256',
-        n: key['-1'].toString('base64url'),
-        e: key['-2'].toString('base64url')
+        n: toBase64Url(key['-1']),
+        e: toBase64Url(key['-2'])
     };
 }
 
