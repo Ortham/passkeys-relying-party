@@ -97,5 +97,19 @@ export function coseToJwk(key: CoseKey): JsonWebKey {
         return rsaCoseToJwk(key);
     }
 
+    if (key['3'] === -37) {
+        assert(Buffer.isBuffer(key['-1']));
+        assert(Buffer.isBuffer(key['-2']));
+
+        return {
+            kty: 'RSA',
+            use: 'sig',
+            key_ops: ['verify'],
+            alg: 'PS256',
+            n: key['-1'].toString('base64url'),
+            e: key['-2'].toString('base64url')
+        };
+    }
+
     throw new Error('Unexpected key type ' + key['1']);
 }
