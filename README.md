@@ -9,9 +9,11 @@ The local server has been tested with Node.js v20.11.0, Deno v1.40.2 and Bun v1.
 - Firefox v122 on Windows 10 22H2 with Windows Hello
 - Firefox v122 on Windows 10 22H2 with Bitwarden
 - Firefox v122 on Windows 10 22H2 with Dashlane
+- Firefox v124 on Windows 10 22H2 with Proton Pass
 - Edge v121 on Windows 10 22H2 with Windows Hello
 - Edge v121 on Windows 10 22H2 with cross-device authentication to Android 14 with Google Credential Manager
 - Chrome v121 on Android 14 with Google Credential Manager
+- Chrome v123 on Android 14 with Proton Pass
 - Chrome v121 on macOS 14.2.1 using Chrome's profile
 - Chrome v121 on macOS 14.2.1 using 1Password
 - Chrome v121 on macOS 14.2.1 using iCloud Keychain
