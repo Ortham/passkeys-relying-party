@@ -15,6 +15,7 @@ import {
     UpdateCommandInput,
 } from '@aws-sdk/lib-dynamodb';
 import { getCurrentTimestamp } from './util.js';
+import assert from 'node:assert';
 
 const ENDPOINT_OVERRIDE = env['ENDPOINT_OVERRIDE'];
 const USERS_TABLE_NAME = env['USERS_TABLE_NAME'];
@@ -111,6 +112,139 @@ function getChallengeExpiryTimestamp() {
     return getCurrentTimestamp() + CHALLENGE_TIMEOUT_SECS;
 }
 
+function parseSession(value: unknown): Session {
+    assert.strictEqual(typeof value, 'object', 'Value is not an object');
+    assert(value !== null, 'Value is null');
+
+    const session = value as Session;
+
+    assert.strictEqual(typeof session.ttl, 'number', 'ttl is not a number');
+
+    if (session.userId !== undefined) {
+        assert(
+            session.userId instanceof Uint8Array,
+            'userId is not a Uint8Array',
+        );
+
+        session.userId = Buffer.from(session.userId);
+    }
+
+    assert(
+        session.challenge === undefined ||
+            typeof session.challenge === 'object',
+        'challenge is defined but not an object',
+    );
+    assert(session.challenge !== null, 'challenge is null');
+
+    if (session.challenge !== undefined) {
+        assert(
+            session.challenge.value instanceof Uint8Array,
+            'challenge.value is not a Uint8Array',
+        );
+        assert.strictEqual(
+            typeof session.challenge.ttl,
+            'number',
+            'challenge.ttl is not a number',
+        );
+
+        session.challenge.value = Buffer.from(session.challenge.value);
+    }
+
+    return session;
+}
+
+function assertIsPasskeyIdsSet(
+    value: unknown,
+): asserts value is Set<Uint8Array> {
+    assert(value instanceof Set, 'Value is not a set');
+
+    for (const entry of value) {
+        assert(entry instanceof Uint8Array, 'Set entry is not a Uint8Array');
+    }
+}
+
+function assertIsSessionIdsSet(value: unknown): asserts value is Set<string> {
+    assert(value instanceof Set, 'Value is not a set');
+
+    for (const entry of value) {
+        assert.strictEqual(typeof entry, 'string', 'Set entry is not a string');
+    }
+}
+
+function parseUser(value: unknown): User {
+    assert.strictEqual(typeof value, 'object', 'Value is not an object');
+    assert(value !== null, 'Value is null');
+
+    const user = value as User;
+
+    assert(user.id instanceof Uint8Array, 'id is not a Uint8Array');
+    user.id = Buffer.from(user.id);
+
+    assert(
+        user.userHandle instanceof Uint8Array,
+        'userHandle is not a Uint8Array',
+    );
+    user.userHandle = Buffer.from(user.userHandle);
+
+    assert(
+        user.passkeys === undefined || user.passkeys instanceof Set,
+        'passkeys is defined but not a Set',
+    );
+    if (user.passkeys === undefined) {
+        user.passkeys = new Set();
+    } else {
+        const passkeys = new Set<string>();
+        for (const id of user.passkeys) {
+            assert(
+                (id as unknown) instanceof Uint8Array,
+                'passkeys entry is not a Uint8Array',
+            );
+
+            passkeys.add(Buffer.from(id).toString('base64'));
+        }
+
+        user.passkeys = passkeys;
+    }
+
+    assert(
+        user.sessions === undefined || user.sessions instanceof Set,
+        'sessions is defined but not a Set',
+    );
+    if (user.sessions === undefined) {
+        user.sessions = new Set();
+    }
+
+    return user;
+}
+
+function parsePasskeyData(value: unknown): PasskeyData {
+    assert.strictEqual(typeof value, 'object', 'Value is not an object');
+    assert(value !== null, 'Value is null');
+
+    const passkeyData = value as PasskeyData;
+
+    assert(
+        passkeyData.credentialId instanceof Uint8Array,
+        'credentialId is not a Uint8Array',
+    );
+    passkeyData.credentialId = Buffer.from(passkeyData.credentialId);
+
+    assert(
+        passkeyData.userId instanceof Uint8Array,
+        'userId is not a Uint8Array',
+    );
+    passkeyData.userId = Buffer.from(passkeyData.userId);
+
+    assert(
+        passkeyData.userHandle instanceof Uint8Array,
+        'userHandle is not a Uint8Array',
+    );
+    passkeyData.userHandle = Buffer.from(passkeyData.userHandle);
+
+    return passkeyData;
+}
+
+/* eslint-disable @typescript-eslint/require-await */
 class InProcessDatabase implements Database {
     private users: Map<string, User>;
     private sessions: Map<string, Session>;
@@ -152,9 +286,10 @@ class InProcessDatabase implements Database {
 
         // If the session already had a user ID associated with it, remove the session ID from that user's sessions set.
         if (session.userId !== undefined) {
-            const user = this.users.get(session.userId.toString('base64'));
+            const sessionUserId = session.userId.toString('base64');
+            const user = this.users.get(sessionUserId);
             if (!user) {
-                throw new Error(`User with ID ${userId} is undefined`);
+                throw new Error(`User with ID ${sessionUserId} is undefined`);
             }
 
             user.sessions.delete(sessionId);
@@ -166,7 +301,9 @@ class InProcessDatabase implements Database {
         // Update the user's sessions.
         const user = this.users.get(userId.toString('base64'));
         if (!user) {
-            throw new Error(`User with ID ${userId} is undefined`);
+            throw new Error(
+                `User with ID ${userId.toString('base64')} is undefined`,
+            );
         }
 
         user.sessions.add(sessionId);
@@ -237,7 +374,7 @@ class InProcessDatabase implements Database {
         const session = this.sessions.get(sessionId);
 
         // Update the user's sessions.
-        if (session && session.userId) {
+        if (session?.userId) {
             const user = this.users.get(session.userId.toString('base64'));
             user?.sessions.delete(sessionId);
         }
@@ -252,7 +389,9 @@ class InProcessDatabase implements Database {
 
         const user = this.users.get(passkey.userId.toString('base64'));
         if (!user) {
-            throw new Error(`User with ID ${passkey.userId} is undefined`);
+            throw new Error(
+                `User with ID ${passkey.userId.toString('base64')} is undefined`,
+            );
         }
 
         user.passkeys.add(key);
@@ -288,7 +427,9 @@ class InProcessDatabase implements Database {
     ) {
         const passkey = this.passkeys.get(credentialId.toString('base64'));
         if (!passkey) {
-            throw new Error(`Passkey with ID ${credentialId} is undefined`);
+            throw new Error(
+                `Passkey with ID ${credentialId.toString('base64')} is undefined`,
+            );
         }
 
         passkey.signCount = signCount;
@@ -296,10 +437,11 @@ class InProcessDatabase implements Database {
         passkey.lastUsedTimestamp = getCurrentTimestamp();
     }
 }
+/* eslint-enable @typescript-eslint/require-await */
 
-function idsToDeleteRequests(
-    ids: Set<Buffer | string>,
-    keyMapper: (id: Buffer | string) => Record<string, Buffer | string>,
+function idsToDeleteRequests<T>(
+    ids: Set<T>,
+    keyMapper: (id: T) => Record<string, T>,
 ) {
     const items = [];
     for (const id of ids.values()) {
@@ -408,8 +550,10 @@ class DynamoDbDatabase implements Database {
 
         const result = await this.update(params);
 
-        const oldUserId = result.Attributes?.['userId'];
+        const oldUserId: unknown = result.Attributes?.['userId'];
         if (oldUserId) {
+            assert(Buffer.isBuffer(oldUserId), 'oldUserId is not a Buffer');
+
             // Remove the session from the old user's data.
             await this.removeSessionFromUser(sessionId, oldUserId);
         }
@@ -437,8 +581,8 @@ class DynamoDbDatabase implements Database {
             ProjectionExpression: 'id',
         };
 
-        const session = await this.get(params);
-        return session !== undefined && !hasSessionExpired(session as Session);
+        const value = await this.get(params);
+        return value !== undefined && !hasSessionExpired(parseSession(value));
     }
 
     async getSession(sessionId: string): Promise<Session | undefined> {
@@ -449,16 +593,16 @@ class DynamoDbDatabase implements Database {
             },
         };
 
-        const session = await this.get(params);
-        if (session !== undefined && !hasSessionExpired(session as Session)) {
-            session['userId'] = Buffer.from(session['userId']);
-            if (session['challenge'] !== undefined) {
-                session['challenge']['value'] = Buffer.from(
-                    session['challenge']['value'],
-                );
-            }
+        const value = await this.get(params);
 
-            return session as Session;
+        if (value === undefined) {
+            return undefined;
+        }
+
+        const session = parseSession(value);
+
+        if (!hasSessionExpired(session)) {
+            return session;
         }
 
         return undefined;
@@ -477,20 +621,25 @@ class DynamoDbDatabase implements Database {
         };
 
         const result = await this.update(params);
+
+        if (result.Attributes === undefined) {
+            return undefined;
+        }
+
+        const session = parseSession(result.Attributes);
+
+        if (hasSessionExpired(session)) {
+            return undefined;
+        }
+
         if (
-            result.Attributes === undefined ||
-            hasSessionExpired(result.Attributes as Session)
+            session.challenge === undefined ||
+            hasChallengeExpired(session.challenge)
         ) {
             return undefined;
         }
 
-        const challenge = result.Attributes['challenge'];
-        if (challenge === undefined || hasChallengeExpired(challenge)) {
-            return undefined;
-        }
-
-        // challenge.value is deserialised as a Uint8Array.
-        return Buffer.from(challenge.value);
+        return session.challenge.value;
     }
 
     async getUserBySessionId(sessionId: string): Promise<User | undefined> {
@@ -507,28 +656,12 @@ class DynamoDbDatabase implements Database {
         };
 
         const user = await this.get(userParams);
-        if (user !== undefined) {
-            // id and userHandle are deserialised as Uint8Arrays.
-            user['id'] = Buffer.from(user['id']);
-            user['userHandle'] = Buffer.from(user['userHandle']);
 
-            if (user['passkeys'] === undefined) {
-                user['passkeys'] = new Set();
-            } else {
-                // The passkeys set should be turned into a set of strings.
-                const passkeys = new Set();
-                for (const id of user['passkeys']) {
-                    passkeys.add(Buffer.from(id).toString('base64'));
-                }
-                user['passkeys'] = passkeys;
-            }
-
-            if (user['sessions'] === undefined) {
-                user['sessions'] = new Set();
-            }
+        if (user === undefined) {
+            return undefined;
         }
 
-        return user as User | undefined;
+        return parseUser(user);
     }
 
     async deleteUserBySessionId(sessionId: string) {
@@ -546,10 +679,12 @@ class DynamoDbDatabase implements Database {
         };
         const attributes = await this.delete(params);
 
-        const passkeyIds: Set<Buffer> = attributes?.['passkeys'] ?? new Set();
+        const passkeyIds: unknown = attributes?.['passkeys'] ?? new Set();
+        assertIsPasskeyIdsSet(passkeyIds);
         console.log('Deleting passkeys with IDs', passkeyIds);
 
-        const sessionIds = attributes?.['sessions'] ?? new Set();
+        const sessionIds: unknown = attributes?.['sessions'] ?? new Set();
+        assertIsSessionIdsSet(sessionIds);
         console.log('Deleting sessions with IDs', sessionIds);
 
         const batchDeleteParams: BatchWriteCommandInput = {
@@ -582,11 +717,13 @@ class DynamoDbDatabase implements Database {
         };
 
         const attributes = await this.delete(params);
-        const userId = attributes?.['userId'];
+        const userId: unknown = attributes?.['userId'];
 
         if (!userId) {
             return;
         }
+
+        assert(Buffer.isBuffer(userId), 'userId is not a Buffer');
 
         // Remove the session from the user's data.
         await this.removeSessionFromUser(sessionId, userId);
@@ -624,7 +761,7 @@ class DynamoDbDatabase implements Database {
         };
 
         const attributes = await this.delete(params);
-        const userId = attributes?.['userId'];
+        const userId: unknown = attributes?.['userId'];
 
         if (!userId) {
             return;
@@ -668,13 +805,12 @@ class DynamoDbDatabase implements Database {
         };
 
         const item = await this.get(params);
-        if (item !== undefined) {
-            // credentialId, userId and userHandle are deserialised as Uint8Array values.
-            item['credentialId'] = Buffer.from(item['credentialId']);
-            item['userId'] = Buffer.from(item['userId']);
-            item['userHandle'] = Buffer.from(item['userHandle']);
+
+        if (item === undefined) {
+            return undefined;
         }
-        return item as PasskeyData | undefined;
+
+        return parsePasskeyData(item);
     }
 
     async updatePasskeyState(
@@ -744,13 +880,19 @@ class DynamoDbDatabase implements Database {
             ProjectionExpression: 'userId',
         };
 
-        const session = await this.get(sessionParams);
+        const value = await this.get(sessionParams);
 
-        if (session === undefined || hasSessionExpired(session as Session)) {
+        if (value === undefined) {
             return undefined;
         }
 
-        return session['userId'];
+        const session = parseSession(value);
+
+        if (hasSessionExpired(session)) {
+            return undefined;
+        }
+
+        return session.userId;
     }
 
     private async delete(params: DeleteCommandInput) {

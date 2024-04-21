@@ -30,6 +30,31 @@ export interface AuthData {
     extensions: unknown;
 }
 
+export function assertIsClientData(
+    value: unknown,
+): asserts value is ClientData {
+    assert.strictEqual(typeof value, 'object', 'clientData is not an object');
+    assert(value !== null, 'clientData is null');
+
+    const clientData = value as ClientData;
+
+    assert.strictEqual(
+        typeof clientData.type,
+        'string',
+        'clientData.type is not a string',
+    );
+    assert.strictEqual(
+        typeof clientData.challenge,
+        'string',
+        'clientData.challenge is not a string',
+    );
+    assert.strictEqual(
+        typeof clientData.origin,
+        'string',
+        'clientData.origin is not a string',
+    );
+}
+
 export function validateClientData(
     clientData: ClientData,
     expectedType: string,

@@ -30,6 +30,13 @@ interface RsaCoseKey extends CoseKey {
     '-2': Buffer;
 }
 
+function assertIsCoseKey(key: unknown): asserts key is CoseKey {
+    assert(key !== null, 'The public key is null');
+    assert(typeof key === 'object', 'The public key is not an object');
+    assert('1' in key, "The public key's kty field is missing");
+    assert('3' in key, "The public key's alg field is missing");
+}
+
 function isEcCoseKey(key: CoseKey): key is EcCoseKey {
     return (
         key['1'] === COSE_KEY_TYPE_EC2 &&
@@ -80,12 +87,9 @@ function rsaCoseToJwk(key: RsaCoseKey): JsonWebKey {
 
 export function mapToCoseKey(map: Map<DecodedValue, DecodedValue>): CoseKey {
     console.log('Decoded COSE key is', map);
-    const publicKey = Object.fromEntries(map);
+    const publicKey: unknown = Object.fromEntries(map);
 
-    assert(publicKey !== null, 'The public key is null');
-    assert(typeof publicKey === 'object', 'The public key is not an object');
-    assert('1' in publicKey, "The public key's kty field is missing");
-    assert('3' in publicKey, "The public key's alg field is missing");
+    assertIsCoseKey(publicKey);
 
     return publicKey;
 }

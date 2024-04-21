@@ -7,6 +7,7 @@ import { database } from '../lib/database.js';
 import {
     FLAG_BACKUP_ELIGIBILITY,
     FLAG_BACKUP_STATE,
+    assertIsClientData,
     parseAuthData,
     validateAuthData,
     validateClientData,
@@ -22,16 +23,59 @@ interface SignInBody {
     authenticatorData: Buffer;
 }
 
+interface SignInBodyJson {
+    id: string;
+    clientDataJSON: string;
+    signature: string;
+    userHandle: string | undefined;
+    authenticatorData: string;
+}
+
+function assertParsedJsonIsValid(
+    value: unknown,
+): asserts value is SignInBodyJson {
+    assert.strictEqual(typeof value, 'object', 'Value is not an object');
+    assert(value !== null, 'Value is null');
+
+    const rbValue = value as SignInBodyJson;
+
+    assert.strictEqual(typeof rbValue.id, 'string', 'id is not a string');
+    assert.strictEqual(
+        typeof rbValue.clientDataJSON,
+        'string',
+        'clientDataJSON is not a string',
+    );
+    assert.strictEqual(
+        typeof rbValue.signature,
+        'string',
+        'signature is not a string',
+    );
+
+    assert(
+        rbValue.userHandle === undefined ||
+            typeof rbValue.userHandle === 'string',
+        'userHandle is defined but not a string',
+    );
+
+    assert.strictEqual(
+        typeof rbValue.authenticatorData,
+        'string',
+        'authenticatorData is not a string',
+    );
+}
+
 function parseRequestBody(body: string): SignInBody {
-    const passkey = JSON.parse(body);
+    const parsed: unknown = JSON.parse(body);
+
+    assertParsedJsonIsValid(parsed);
 
     return {
-        id: Buffer.from(passkey.id, 'base64url'),
-        clientDataJSON: Buffer.from(passkey.clientDataJSON, 'base64'),
-        signature: Buffer.from(passkey.signature, 'base64'),
-        authenticatorData: Buffer.from(passkey.authenticatorData, 'base64'),
-        userHandle: passkey.userHandle
-            ? Buffer.from(passkey.userHandle, 'base64')
+        id: Buffer.from(parsed.id, 'base64url'),
+        clientDataJSON: Buffer.from(parsed.clientDataJSON, 'base64'),
+        signature: Buffer.from(parsed.signature, 'base64'),
+        authenticatorData: Buffer.from(parsed.authenticatorData, 'base64'),
+        userHandle: parsed.userHandle
+            ? Buffer.from(parsed.userHandle, 'base64')
             : undefined,
     };
 }
@@ -199,7 +243,10 @@ export async function handleSignIn(bodyString: string, sessionId: string) {
         'The given user handle does not match the stored user handle for this credential',
     );
 
-    const clientData = JSON.parse(body.clientDataJSON.toString('utf8'));
+    const clientData: unknown = JSON.parse(
+        body.clientDataJSON.toString('utf8'),
+    );
+    assertIsClientData(clientData);
 
     const expectedChallenge = await database.getAndDeleteChallenge(sessionId);
     assert(expectedChallenge !== undefined, 'No stored challenge found');

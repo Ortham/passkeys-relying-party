@@ -18,8 +18,81 @@ interface RequestBody {
     passkey: Omit<CreatePasskeyRequestBody, 'description'>;
 }
 
+function assertPasskeyJsonIsValid(
+    value: unknown,
+): asserts value is RequestBody['passkey'] & { attestationObject: string } {
+    assert.strictEqual(typeof value, 'object', 'Value is not an object');
+    assert(value !== null, 'Value is null');
+
+    const rbValue = value as CreatePasskeyRequestBody;
+
+    assert.strictEqual(
+        typeof rbValue.clientData,
+        'object',
+        'clientData is not an object',
+    );
+    assert(rbValue.clientData !== null, 'clientData is null');
+
+    assert.strictEqual(
+        typeof rbValue.clientData.type,
+        'string',
+        'clientData.type is not a string',
+    );
+    assert.strictEqual(
+        typeof rbValue.clientData.challenge,
+        'string',
+        'clientData.challenge is not a string',
+    );
+    assert.strictEqual(
+        typeof rbValue.clientData.origin,
+        'string',
+        'clientData.origin is not a string',
+    );
+
+    assert.strictEqual(
+        typeof (value as { attestationObject: string }).attestationObject,
+        'string',
+        'attestationObject is not a string',
+    );
+
+    assert(Array.isArray(rbValue.transports), 'transports is not an array');
+    assert(
+        rbValue.transports.every((e) => typeof e === 'string'),
+        'transports array contains a non-string member',
+    );
+}
+
+function assertParsedJsonIsValid(
+    value: unknown,
+): asserts value is Omit<RequestBody, 'userHandle'> & { userHandle: string } {
+    assert.strictEqual(typeof value, 'object', 'Value is not an object');
+    assert(value !== null, 'Value is null');
+
+    const rbValue = value as RequestBody;
+
+    assert.strictEqual(
+        typeof rbValue.userHandle,
+        'string',
+        'userHandle is not a string',
+    );
+    assert.strictEqual(
+        typeof rbValue.username,
+        'string',
+        'username is not a string',
+    );
+    assert.strictEqual(
+        typeof rbValue.displayName,
+        'string',
+        'displayName is not a string',
+    );
+
+    assertPasskeyJsonIsValid(rbValue.passkey);
+}
+
 function parseRequestBody(body: string): RequestBody {
-    const json = JSON.parse(body);
+    const json: unknown = JSON.parse(body);
+
+    assertParsedJsonIsValid(json);
 
     assert(json.username !== null, 'Username is not in request body');
     assert(json.displayName !== null, 'Display name is not in request body');

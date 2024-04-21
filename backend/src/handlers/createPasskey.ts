@@ -6,6 +6,7 @@ import {
     FLAG_BACKUP_ELIGIBILITY,
     FLAG_BACKUP_STATE,
     FLAG_USER_VERIFIED,
+    assertIsClientData,
     parseAuthData,
     validateAuthData,
     validateClientData,
@@ -38,6 +39,37 @@ export interface RequestBody {
     description: string;
 }
 
+function assertParsedJsonIsValid(
+    value: unknown,
+): asserts value is Omit<RequestBody, 'attestationObject'> & {
+    attestationObject: string;
+} {
+    assert.strictEqual(typeof value, 'object', 'Value is not an object');
+    assert(value !== null, 'Value is null');
+
+    const rbValue = value as RequestBody;
+
+    assertIsClientData(rbValue.clientData);
+
+    assert.strictEqual(
+        typeof (value as { attestationObject: string }).attestationObject,
+        'string',
+        'attestationObject is not a string',
+    );
+
+    assert(Array.isArray(rbValue.transports), 'transports is not an array');
+    assert(
+        rbValue.transports.every((e) => typeof e === 'string'),
+        'transports array contains a non-string member',
+    );
+
+    assert.strictEqual(
+        typeof rbValue.description,
+        'string',
+        'description is not a string',
+    );
+}
+
 function decodeAttestationObject(attestationObject: Buffer): AttestationObject {
     // https://w3c.github.io/webauthn/#attestation-object
     const { fmt, attStmt, authData } =
@@ -65,7 +97,9 @@ function validateAttestationObject(
 }
 
 export function parseRequestBody(body: string): RequestBody {
-    const passkey = JSON.parse(body);
+    const passkey: unknown = JSON.parse(body);
+    assertParsedJsonIsValid(passkey);
+
     const attestationObject = decodeAttestationObject(
         Buffer.from(passkey.attestationObject, 'base64'),
     );
