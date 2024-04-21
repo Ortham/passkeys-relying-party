@@ -46,7 +46,7 @@ async function setSessionCookie(req: IncomingMessage, res: ServerResponse) {
 function readBody(req: IncomingMessage): Promise<string> {
     return new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
-        req.on('data', (chunk) => {
+        req.on('data', (chunk: Buffer) => {
             chunks.push(chunk);
         });
         req.on('end', () => {

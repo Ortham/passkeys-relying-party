@@ -6,6 +6,7 @@ import { User, database } from '../lib/database.js';
 import {
     parseRequestBody as parseCreatePasskeyRequestBody,
     RequestBody as CreatePasskeyRequestBody,
+    assertParsedJsonIsValid as assertPasskeyJsonIsValid,
     validatePasskeyInputs,
     createPasskeyObject,
 } from './createPasskey.js';
@@ -15,11 +16,42 @@ interface RequestBody {
     userHandle: Buffer;
     username: string;
     displayName: string;
-    passkey: Omit<CreatePasskeyRequestBody, 'description'>;
+    passkey: CreatePasskeyRequestBody;
+}
+
+function assertParsedJsonIsValid(
+    value: unknown,
+): asserts value is Omit<RequestBody, 'userHandle'> & { userHandle: string } {
+    assert.strictEqual(typeof value, 'object', 'Value is not an object');
+    assert(value !== null, 'Value is null');
+
+    const rbValue = value as RequestBody;
+
+    assert.strictEqual(
+        typeof rbValue.userHandle,
+        'string',
+        'userHandle is not a string',
+    );
+    assert.strictEqual(
+        typeof rbValue.username,
+        'string',
+        'username is not a string',
+    );
+    assert.strictEqual(
+        typeof rbValue.displayName,
+        'string',
+        'displayName is not a string',
+    );
+
+    rbValue.passkey.description = 'Added during account creation';
+
+    assertPasskeyJsonIsValid(rbValue.passkey);
 }
 
 function parseRequestBody(body: string): RequestBody {
-    const json = JSON.parse(body);
+    const json: unknown = JSON.parse(body);
+
+    assertParsedJsonIsValid(json);
 
     assert(json.username !== null, 'Username is not in request body');
     assert(json.displayName !== null, 'Display name is not in request body');
@@ -58,7 +90,7 @@ export async function createUser(bodyString: string, sessionId: string) {
         body.passkey,
         user,
         jwk,
-        'Added during account creation',
+        body.passkey.description,
     );
 
     // Store the user first because storing the passkey also updates the user data with the passkey's ID.

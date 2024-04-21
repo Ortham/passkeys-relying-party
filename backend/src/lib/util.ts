@@ -33,7 +33,7 @@ export function getCookieHeader(
     const headers = new Headers(stringHeaders);
     const cookie = headers.get('Cookie');
 
-    return cookie === null ? undefined : cookie;
+    return cookie ?? undefined;
 }
 
 export function getCookies(

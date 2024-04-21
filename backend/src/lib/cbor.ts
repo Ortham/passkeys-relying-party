@@ -175,10 +175,10 @@ function decodeArray(buffer: Uint8Array): {
     assert(buffer.byteLength > 0, "Can't decode array from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_ARRAY);
 
-    let { start, end } = getDataLength(buffer);
+    const { start, end } = getDataLength(buffer);
     let itemCount = end - start;
 
-    let items = [];
+    const items = [];
     let offset = start;
     while (itemCount > 0) {
         const { value: item, end: itemEnd } = decodeDataItem(
@@ -203,10 +203,10 @@ function decodeMap(buffer: Uint8Array): {
     assert(buffer.byteLength > 0, "Can't decode map from no data");
     assert.strictEqual(getType(buffer[0]!), CBOR_TYPE_MAP);
 
-    let { start, end } = getDataLength(buffer);
+    const { start, end } = getDataLength(buffer);
     let itemCount = end - start;
 
-    let entries: [DecodedValue, DecodedValue][] = [];
+    const entries: [DecodedValue, DecodedValue][] = [];
     let offset = start;
     while (itemCount > 0) {
         const { value: key, end: keyEnd } = decodeDataItem(
@@ -372,11 +372,11 @@ function decodeDataItem(buffer: Uint8Array): {
 }
 
 export function parseCBOR(buffer: Uint8Array): DecodedValue[] {
-    let items = [];
+    const items = [];
 
     let offset = 0;
     while (offset < buffer.byteLength) {
-        let { value: item, end } = decodeDataItem(buffer.subarray(offset));
+        const { value: item, end } = decodeDataItem(buffer.subarray(offset));
 
         items.push(item);
         offset += Number(end);
