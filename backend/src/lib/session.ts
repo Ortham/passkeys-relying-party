@@ -1,4 +1,3 @@
-
 import { SESSION_COOKIE_NAME } from './config.js';
 import { database } from './database.js';
 import { getCookies, getRandomBytes } from './util.js';
@@ -19,26 +18,34 @@ async function createSession() {
     return sessionId;
 }
 
-export function getSessionId(requestHeaders: Record<string, string | string[] | undefined>) {
+export function getSessionId(
+    requestHeaders: Record<string, string | string[] | undefined>,
+) {
     return getCookies(requestHeaders).get(SESSION_COOKIE_NAME);
 }
 
-export async function getOrCreateSession(requestHeaders: Record<string, string | string[] | undefined>) {
+export async function getOrCreateSession(
+    requestHeaders: Record<string, string | string[] | undefined>,
+) {
     let sessionId = getSessionId(requestHeaders);
     const isValid = await isValidSessionId(sessionId);
 
     let responseHeaders: Record<string, string> | undefined;
     if (!isValid) {
-        console.warn('Session ID', sessionId, 'is not valid, creating new session');
+        console.warn(
+            'Session ID',
+            sessionId,
+            'is not valid, creating new session',
+        );
         sessionId = await createSession();
         responseHeaders = {
-            'Set-Cookie': `${SESSION_COOKIE_NAME}=${sessionId}; HttpOnly; SameSite=Strict; Secure`
+            'Set-Cookie': `${SESSION_COOKIE_NAME}=${sessionId}; HttpOnly; SameSite=Strict; Secure`,
         };
     }
 
     return {
         sessionId: sessionId!,
-        responseHeaders
+        responseHeaders,
     };
 }
 
@@ -54,7 +61,7 @@ export async function logout(sessionId: string) {
     await database.deleteSession(sessionId);
 
     return {
-        'Set-Cookie': `${SESSION_COOKIE_NAME}=; HttpOnly; SameSite=Strict; Secure; Max-Age=0`
+        'Set-Cookie': `${SESSION_COOKIE_NAME}=; HttpOnly; SameSite=Strict; Secure; Max-Age=0`,
     };
 }
 
@@ -67,6 +74,6 @@ export async function getProfile(sessionId: string) {
     return {
         userHandle: user.userHandle.toString('base64url'),
         username: user.name,
-        displayName: user.displayName
+        displayName: user.displayName,
     };
 }

@@ -1,6 +1,6 @@
-import assert from "node:assert";
+import assert from 'node:assert';
 import { Buffer } from 'node:buffer';
-import { DecodedValue } from "./cbor.js";
+import { DecodedValue } from './cbor.js';
 
 const WEBAUTHN_ALG_ES256 = -7;
 const WEBAUTHN_ALG_RS256 = -257;
@@ -31,18 +31,22 @@ interface RsaCoseKey extends CoseKey {
 }
 
 function isEcCoseKey(key: CoseKey): key is EcCoseKey {
-    return key['1'] === COSE_KEY_TYPE_EC2
-        && key['3'] === WEBAUTHN_ALG_ES256
-        && key['-1'] === COSE_EC_P256
-        && Buffer.isBuffer(key['-2'])
-        && Buffer.isBuffer(key['-3']);
+    return (
+        key['1'] === COSE_KEY_TYPE_EC2 &&
+        key['3'] === WEBAUTHN_ALG_ES256 &&
+        key['-1'] === COSE_EC_P256 &&
+        Buffer.isBuffer(key['-2']) &&
+        Buffer.isBuffer(key['-3'])
+    );
 }
 
 function isRsaCoseKey(key: CoseKey): key is RsaCoseKey {
-    return key['1'] === COSE_KEY_TYPE_RSA
-        && key['3'] === WEBAUTHN_ALG_RS256
-        && Buffer.isBuffer(key['-1'])
-        && Buffer.isBuffer(key['-2']);
+    return (
+        key['1'] === COSE_KEY_TYPE_RSA &&
+        key['3'] === WEBAUTHN_ALG_RS256 &&
+        Buffer.isBuffer(key['-1']) &&
+        Buffer.isBuffer(key['-2'])
+    );
 }
 
 function ecCoseToJwk(key: EcCoseKey): JsonWebKey {
@@ -56,7 +60,7 @@ function ecCoseToJwk(key: EcCoseKey): JsonWebKey {
         alg: 'ES256',
         crv: 'P-256',
         x: key['-2'].toString('base64url'),
-        y: key['-3'].toString('base64url')
+        y: key['-3'].toString('base64url'),
     };
 }
 
@@ -70,7 +74,7 @@ function rsaCoseToJwk(key: RsaCoseKey): JsonWebKey {
         key_ops: ['verify'],
         alg: 'RS256',
         n: key['-1'].toString('base64url'),
-        e: key['-2'].toString('base64url')
+        e: key['-2'].toString('base64url'),
     };
 }
 
@@ -80,8 +84,8 @@ export function mapToCoseKey(map: Map<DecodedValue, DecodedValue>): CoseKey {
 
     assert(publicKey !== null, 'The public key is null');
     assert(typeof publicKey === 'object', 'The public key is not an object');
-    assert('1' in publicKey, 'The public key\'s kty field is missing');
-    assert('3' in publicKey, 'The public key\'s alg field is missing');
+    assert('1' in publicKey, "The public key's kty field is missing");
+    assert('3' in publicKey, "The public key's alg field is missing");
 
     return publicKey;
 }

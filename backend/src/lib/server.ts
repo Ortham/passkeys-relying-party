@@ -2,7 +2,13 @@ import { Buffer } from 'node:buffer';
 import { readFile } from 'node:fs/promises';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import assert, { AssertionError } from 'node:assert';
-import { createChallenge, getOrCreateSession, getProfile, getSessionId, logout } from './session.js';
+import {
+    createChallenge,
+    getOrCreateSession,
+    getProfile,
+    getSessionId,
+    logout,
+} from './session.js';
 import { createUser } from '../handlers/createUser.js';
 import { handleSignIn } from '../handlers/signIn.js';
 import { deleteUser } from '../handlers/deleteUser.js';
@@ -12,7 +18,11 @@ import { deletePasskey } from '../handlers/deletePasskey.js';
 import { database } from './database.js';
 import { getSession } from '../handlers/getSession.js';
 
-async function serveFile(res: ServerResponse, filePath: string, contentType: string) {
+async function serveFile(
+    res: ServerResponse,
+    filePath: string,
+    contentType: string,
+) {
     const file = await readFile('../frontend/public/' + filePath);
 
     res.writeHead(200, { 'Content-Type': contentType });
@@ -20,7 +30,9 @@ async function serveFile(res: ServerResponse, filePath: string, contentType: str
 }
 
 async function setSessionCookie(req: IncomingMessage, res: ServerResponse) {
-    const { sessionId, responseHeaders } = await getOrCreateSession(req.headers);
+    const { sessionId, responseHeaders } = await getOrCreateSession(
+        req.headers,
+    );
 
     if (responseHeaders) {
         for (const [name, value] of Object.entries(responseHeaders)) {
@@ -34,7 +46,7 @@ async function setSessionCookie(req: IncomingMessage, res: ServerResponse) {
 function readBody(req: IncomingMessage): Promise<string> {
     return new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
-        req.on('data', chunk => {
+        req.on('data', (chunk) => {
             chunks.push(chunk);
         });
         req.on('end', () => {
@@ -51,7 +63,7 @@ async function serveChallenge(req: IncomingMessage, res: ServerResponse) {
     const sessionId = await setSessionCookie(req, res);
     const challenge = await createChallenge(sessionId);
 
-    res.writeHead(200, {'Content-Type': 'application/json'});
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ challenge }));
 }
 
@@ -98,7 +110,11 @@ async function handleGetSession(res: ServerResponse, sessionId: string) {
     }
 }
 
-async function handleSignUpSubmit(req: IncomingMessage, res: ServerResponse, sessionId: string) {
+async function handleSignUpSubmit(
+    req: IncomingMessage,
+    res: ServerResponse,
+    sessionId: string,
+) {
     // https://w3c.github.io/webauthn/#sctn-registering-a-new-credential
     const body = await readBody(req);
 
@@ -108,8 +124,11 @@ async function handleSignUpSubmit(req: IncomingMessage, res: ServerResponse, ses
     res.end();
 }
 
-
-async function handleSignInSubmit(req: IncomingMessage, res: ServerResponse, sessionId: string) {
+async function handleSignInSubmit(
+    req: IncomingMessage,
+    res: ServerResponse,
+    sessionId: string,
+) {
     // https://w3c.github.io/webauthn/#sctn-verifying-assertion
     const body = await readBody(req);
 
@@ -124,7 +143,11 @@ async function handleSignInSubmit(req: IncomingMessage, res: ServerResponse, ses
     }
 }
 
-async function handleCreatePasskey(req: IncomingMessage, res: ServerResponse, sessionId: string) {
+async function handleCreatePasskey(
+    req: IncomingMessage,
+    res: ServerResponse,
+    sessionId: string,
+) {
     const body = await readBody(req);
 
     const user = await database.getUserBySessionId(sessionId);
@@ -143,14 +166,21 @@ async function handleDeleteUser(res: ServerResponse, sessionId: string) {
     res.end();
 }
 
-async function handleDeletePasskey(res: ServerResponse, sessionId: string, passkeyId: string) {
+async function handleDeletePasskey(
+    res: ServerResponse,
+    sessionId: string,
+    passkeyId: string,
+) {
     await deletePasskey(sessionId, passkeyId);
 
     res.writeHead(204);
     res.end();
 }
 
-export async function requestListener(req: IncomingMessage, res: ServerResponse) {
+export async function requestListener(
+    req: IncomingMessage,
+    res: ServerResponse,
+) {
     const HTML = 'text/html';
     const CSS = 'text/css';
     const JAVASCRIPT = 'text/javascript';
@@ -210,7 +240,10 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
                 await handleDeleteUser(res, sessionId);
             } else if (url.pathname.startsWith('/api/passkeys/')) {
                 const passkeyId = url.pathname.split('/').at(-1);
-                assert(passkeyId !== undefined && passkeyId.length > 0, 'The request path has no passkey ID');
+                assert(
+                    passkeyId !== undefined && passkeyId.length > 0,
+                    'The request path has no passkey ID',
+                );
                 assert(sessionId);
                 await handleDeletePasskey(res, sessionId, passkeyId);
             } else {

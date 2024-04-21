@@ -1,24 +1,25 @@
 {
-  "name": "passkeys",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "type": "module",
-  "scripts": {
-    "build": "npx tsc",
-    "start": "node build/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.502.0",
-    "@aws-sdk/lib-dynamodb": "^3.502.0",
-    "esbuild": "^0.20.0"
-  },
-  "devDependencies": {
-    "@types/aws-lambda": "^8.10.133",
-    "@types/node": "^20.11.7",
-    "typescript": "^5.3.3"
-  }
+    "name": "passkeys",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+        "build": "npx tsc",
+        "start": "node build/index.js",
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "fmt": "npx prettier --write ."
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "@aws-sdk/client-dynamodb": "^3.502.0",
+        "@aws-sdk/lib-dynamodb": "^3.502.0",
+        "esbuild": "^0.20.0"
+    },
+    "devDependencies": {
+        "@types/aws-lambda": "^8.10.133",
+        "@types/node": "^20.11.7",
+        "typescript": "^5.3.3"
+    }
 }

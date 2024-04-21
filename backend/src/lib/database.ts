@@ -1,7 +1,19 @@
 import { env } from 'node:process';
 import { Buffer } from 'node:buffer';
 import { DynamoDBClient, ReturnValue } from '@aws-sdk/client-dynamodb';
-import { BatchWriteCommand, BatchWriteCommandInput, DeleteCommand, DeleteCommandInput, DynamoDBDocumentClient, GetCommand, GetCommandInput, PutCommand, PutCommandInput, UpdateCommand, UpdateCommandInput } from '@aws-sdk/lib-dynamodb';
+import {
+    BatchWriteCommand,
+    BatchWriteCommandInput,
+    DeleteCommand,
+    DeleteCommandInput,
+    DynamoDBDocumentClient,
+    GetCommand,
+    GetCommandInput,
+    PutCommand,
+    PutCommandInput,
+    UpdateCommand,
+    UpdateCommandInput,
+} from '@aws-sdk/lib-dynamodb';
 import { getCurrentTimestamp } from './util.js';
 
 const ENDPOINT_OVERRIDE = env['ENDPOINT_OVERRIDE'];
@@ -76,7 +88,11 @@ interface Database {
 
     getPasskeyData(credentialId: Buffer): Promise<PasskeyData | undefined>;
 
-    updatePasskeyState(credentialId: Buffer, signCount: number, backupState: boolean): Promise<void>;
+    updatePasskeyState(
+        credentialId: Buffer,
+        signCount: number,
+        backupState: boolean,
+    ): Promise<void>;
 }
 
 function hasSessionExpired(session: Session) {
@@ -112,7 +128,7 @@ class InProcessDatabase implements Database {
 
     async insertSession(sessionId: string) {
         this.sessions.set(sessionId, {
-            ttl: getSessionExpiryTimestamp()
+            ttl: getSessionExpiryTimestamp(),
         });
     }
 
@@ -121,7 +137,7 @@ class InProcessDatabase implements Database {
         if (session) {
             session.challenge = {
                 value: challenge,
-                ttl: getChallengeExpiryTimestamp()
+                ttl: getChallengeExpiryTimestamp(),
             };
         } else {
             throw new Error(`Session with ID ${sessionId} is undefined`);
@@ -240,7 +256,7 @@ class InProcessDatabase implements Database {
         }
 
         user.passkeys.add(key);
-    };
+    }
 
     async deletePasskey(credentialId: Buffer): Promise<void> {
         const key = credentialId.toString('base64');
@@ -265,7 +281,11 @@ class InProcessDatabase implements Database {
         return this.passkeys.get(credentialId.toString('base64'));
     }
 
-    async updatePasskeyState(credentialId: Buffer, signCount: number, backupState: boolean) {
+    async updatePasskeyState(
+        credentialId: Buffer,
+        signCount: number,
+        backupState: boolean,
+    ) {
         const passkey = this.passkeys.get(credentialId.toString('base64'));
         if (!passkey) {
             throw new Error(`Passkey with ID ${credentialId} is undefined`);
@@ -277,17 +297,16 @@ class InProcessDatabase implements Database {
     }
 }
 
-
 function idsToDeleteRequests(
     ids: Set<Buffer | string>,
-    keyMapper: (id: Buffer | string) => Record<string, Buffer | string>
+    keyMapper: (id: Buffer | string) => Record<string, Buffer | string>,
 ) {
     const items = [];
     for (const id of ids.values()) {
         items.push({
             DeleteRequest: {
-                Key: keyMapper(id)
-            }
+                Key: keyMapper(id),
+            },
         });
     }
 
@@ -298,20 +317,23 @@ class DynamoDbDatabase implements Database {
     private ddbDocClient: DynamoDBDocumentClient;
 
     constructor() {
-        const ddbConfig = ENDPOINT_OVERRIDE ? { endpoint: ENDPOINT_OVERRIDE } : {};
+        const ddbConfig = ENDPOINT_OVERRIDE
+            ? { endpoint: ENDPOINT_OVERRIDE }
+            : {};
         const ddbClient = new DynamoDBClient(ddbConfig);
 
         this.ddbDocClient = DynamoDBDocumentClient.from(ddbClient);
     }
 
     async insertUser(user: User) {
-        type DbUser = Omit<User, 'passkeys' | 'sessions'> & Partial<Pick<User, 'sessions'>> & { passkeys?: Set<Buffer> };
+        type DbUser = Omit<User, 'passkeys' | 'sessions'> &
+            Partial<Pick<User, 'sessions'>> & { passkeys?: Set<Buffer> };
 
         const item: DbUser = {
             id: user.id,
             name: user.name,
             displayName: user.displayName,
-            userHandle: user.userHandle
+            userHandle: user.userHandle,
         };
 
         // DynamoDB doesn't allow storing empty sets by default.
@@ -329,7 +351,7 @@ class DynamoDbDatabase implements Database {
 
         const params = {
             TableName: USERS_TABLE_NAME,
-            Item: item
+            Item: item,
         };
 
         await this.put(params);
@@ -340,43 +362,49 @@ class DynamoDbDatabase implements Database {
             TableName: SESSIONS_TABLE_NAME,
             Item: {
                 id: sessionId,
-                ttl: getSessionExpiryTimestamp()
-            }
+                ttl: getSessionExpiryTimestamp(),
+            },
         };
 
         await this.put(params);
     }
 
-    async updateSessionChallenge(sessionId: string, challenge: Buffer): Promise<void> {
+    async updateSessionChallenge(
+        sessionId: string,
+        challenge: Buffer,
+    ): Promise<void> {
         const params = {
             TableName: SESSIONS_TABLE_NAME,
             Key: {
-                id: sessionId
+                id: sessionId,
             },
-            UpdateExpression: "set challenge = :challenge",
+            UpdateExpression: 'set challenge = :challenge',
             ExpressionAttributeValues: {
-                ":challenge": {
+                ':challenge': {
                     value: challenge,
-                    ttl: getChallengeExpiryTimestamp()
-                }
-            }
-        }
+                    ttl: getChallengeExpiryTimestamp(),
+                },
+            },
+        };
 
         await this.update(params);
     }
 
-    async updateSessionUserId(sessionId: string, userId: Buffer): Promise<void> {
+    async updateSessionUserId(
+        sessionId: string,
+        userId: Buffer,
+    ): Promise<void> {
         const params = {
             TableName: SESSIONS_TABLE_NAME,
             Key: {
-                id: sessionId
+                id: sessionId,
             },
-            UpdateExpression: "set userId = :userId",
+            UpdateExpression: 'set userId = :userId',
             ExpressionAttributeValues: {
-                ":userId": userId
+                ':userId': userId,
             },
-            ReturnValues: ReturnValue.UPDATED_OLD
-        }
+            ReturnValues: ReturnValue.UPDATED_OLD,
+        };
 
         const result = await this.update(params);
 
@@ -389,13 +417,13 @@ class DynamoDbDatabase implements Database {
         const userParams = {
             TableName: USERS_TABLE_NAME,
             Key: {
-                id: userId
+                id: userId,
             },
-            UpdateExpression: "ADD sessions :sessionId",
+            UpdateExpression: 'ADD sessions :sessionId',
             ExpressionAttributeValues: {
-                ":sessionId": new Set([sessionId])
-            }
-        }
+                ':sessionId': new Set([sessionId]),
+            },
+        };
 
         await this.update(userParams);
     }
@@ -404,9 +432,9 @@ class DynamoDbDatabase implements Database {
         const params = {
             TableName: SESSIONS_TABLE_NAME,
             Key: {
-                id: sessionId
+                id: sessionId,
             },
-            ProjectionExpression: 'id'
+            ProjectionExpression: 'id',
         };
 
         const session = await this.get(params);
@@ -417,15 +445,17 @@ class DynamoDbDatabase implements Database {
         const params = {
             TableName: SESSIONS_TABLE_NAME,
             Key: {
-                id: sessionId
-            }
+                id: sessionId,
+            },
         };
 
         const session = await this.get(params);
         if (session !== undefined && !hasSessionExpired(session as Session)) {
             session['userId'] = Buffer.from(session['userId']);
             if (session['challenge'] !== undefined) {
-                session['challenge']['value'] = Buffer.from(session['challenge']['value']);
+                session['challenge']['value'] = Buffer.from(
+                    session['challenge']['value'],
+                );
             }
 
             return session as Session;
@@ -434,18 +464,23 @@ class DynamoDbDatabase implements Database {
         return undefined;
     }
 
-    async getAndDeleteChallenge(sessionId: string): Promise<Buffer | undefined> {
+    async getAndDeleteChallenge(
+        sessionId: string,
+    ): Promise<Buffer | undefined> {
         const params = {
             TableName: SESSIONS_TABLE_NAME,
             Key: {
-                id: sessionId
+                id: sessionId,
             },
-            UpdateExpression: "REMOVE challenge",
-            ReturnValues: ReturnValue.ALL_OLD
-        }
+            UpdateExpression: 'REMOVE challenge',
+            ReturnValues: ReturnValue.ALL_OLD,
+        };
 
         const result = await this.update(params);
-        if (result.Attributes === undefined || hasSessionExpired(result.Attributes as Session)) {
+        if (
+            result.Attributes === undefined ||
+            hasSessionExpired(result.Attributes as Session)
+        ) {
             return undefined;
         }
 
@@ -467,8 +502,8 @@ class DynamoDbDatabase implements Database {
         const userParams = {
             TableName: USERS_TABLE_NAME,
             Key: {
-                id: userId
-            }
+                id: userId,
+            },
         };
 
         const user = await this.get(userParams);
@@ -505,9 +540,9 @@ class DynamoDbDatabase implements Database {
         const params = {
             TableName: USERS_TABLE_NAME,
             Key: {
-                id: userId
+                id: userId,
             },
-            ReturnValues: ReturnValue.ALL_OLD
+            ReturnValues: ReturnValue.ALL_OLD,
         };
         const attributes = await this.delete(params);
 
@@ -519,10 +554,20 @@ class DynamoDbDatabase implements Database {
 
         const batchDeleteParams: BatchWriteCommandInput = {
             RequestItems: {
-                [PASSKEYS_TABLE_NAME!]: idsToDeleteRequests(passkeyIds, id => ({ credentialId: id })),
-                [SESSIONS_TABLE_NAME!]: idsToDeleteRequests(sessionIds, id => ({ id })),
-            }
-        }
+                [PASSKEYS_TABLE_NAME!]: idsToDeleteRequests(
+                    passkeyIds,
+                    (id) => ({
+                        credentialId: id,
+                    }),
+                ),
+                [SESSIONS_TABLE_NAME!]: idsToDeleteRequests(
+                    sessionIds,
+                    (id) => ({
+                        id,
+                    }),
+                ),
+            },
+        };
 
         await this.batchDelete(batchDeleteParams);
     }
@@ -531,9 +576,9 @@ class DynamoDbDatabase implements Database {
         const params = {
             TableName: SESSIONS_TABLE_NAME,
             Key: {
-                id: sessionId
+                id: sessionId,
             },
-            ReturnValues: ReturnValue.ALL_OLD
+            ReturnValues: ReturnValue.ALL_OLD,
         };
 
         const attributes = await this.delete(params);
@@ -550,7 +595,7 @@ class DynamoDbDatabase implements Database {
     async insertPasskey(passkey: PasskeyData): Promise<void> {
         const passkeyParams = {
             TableName: PASSKEYS_TABLE_NAME,
-            Item: passkey
+            Item: passkey,
         };
 
         await this.put(passkeyParams);
@@ -558,13 +603,13 @@ class DynamoDbDatabase implements Database {
         const userParams = {
             TableName: USERS_TABLE_NAME,
             Key: {
-                id: passkey.userId
+                id: passkey.userId,
             },
-            UpdateExpression: "ADD passkeys :passkeyId",
+            UpdateExpression: 'ADD passkeys :passkeyId',
             ExpressionAttributeValues: {
-                ":passkeyId": new Set([passkey.credentialId])
-            }
-        }
+                ':passkeyId': new Set([passkey.credentialId]),
+            },
+        };
 
         await this.update(userParams);
     }
@@ -573,9 +618,9 @@ class DynamoDbDatabase implements Database {
         const params = {
             TableName: PASSKEYS_TABLE_NAME,
             Key: {
-                credentialId
+                credentialId,
             },
-            ReturnValues: ReturnValue.ALL_OLD
+            ReturnValues: ReturnValue.ALL_OLD,
         };
 
         const attributes = await this.delete(params);
@@ -588,13 +633,13 @@ class DynamoDbDatabase implements Database {
         const userParams = {
             TableName: USERS_TABLE_NAME,
             Key: {
-                id: userId
+                id: userId,
             },
-            UpdateExpression: "DELETE passkeys :credentialId",
+            UpdateExpression: 'DELETE passkeys :credentialId',
             ExpressionAttributeValues: {
-                ":credentialId": new Set([credentialId])
-            }
-        }
+                ':credentialId': new Set([credentialId]),
+            },
+        };
 
         await this.update(userParams);
     }
@@ -603,22 +648,24 @@ class DynamoDbDatabase implements Database {
         const params = {
             TableName: PASSKEYS_TABLE_NAME,
             Key: {
-                credentialId
+                credentialId,
             },
-            ProjectionExpression: 'credentialId'
+            ProjectionExpression: 'credentialId',
         };
 
         const item = await this.get(params);
         return item !== undefined;
     }
 
-    async getPasskeyData(credentialId: Buffer): Promise<PasskeyData | undefined> {
+    async getPasskeyData(
+        credentialId: Buffer,
+    ): Promise<PasskeyData | undefined> {
         const params = {
             TableName: PASSKEYS_TABLE_NAME,
             Key: {
-                credentialId
-            }
-        }
+                credentialId,
+            },
+        };
 
         const item = await this.get(params);
         if (item !== undefined) {
@@ -630,19 +677,24 @@ class DynamoDbDatabase implements Database {
         return item as PasskeyData | undefined;
     }
 
-    async updatePasskeyState(credentialId: Buffer, signCount: number, backupState: boolean): Promise<void> {
+    async updatePasskeyState(
+        credentialId: Buffer,
+        signCount: number,
+        backupState: boolean,
+    ): Promise<void> {
         const params = {
             TableName: PASSKEYS_TABLE_NAME,
             Key: {
-                credentialId
+                credentialId,
             },
-            UpdateExpression: "set signCount = :s, backupState = :b, lastUsedTimestamp = :l",
+            UpdateExpression:
+                'set signCount = :s, backupState = :b, lastUsedTimestamp = :l',
             ExpressionAttributeValues: {
-                ":s": signCount,
-                ":b": backupState,
-                ":l": getCurrentTimestamp()
-            }
-        }
+                ':s': signCount,
+                ':b': backupState,
+                ':l': getCurrentTimestamp(),
+            },
+        };
 
         await this.update(params);
     }
@@ -650,9 +702,9 @@ class DynamoDbDatabase implements Database {
     private async put(params: PutCommandInput) {
         try {
             const data = await this.ddbDocClient.send(new PutCommand(params));
-            console.log("Success - item added or updated", data);
+            console.log('Success - item added or updated', data);
         } catch (err) {
-            console.error("Error adding or updating item:", err);
+            console.error('Error adding or updating item:', err);
 
             throw err;
         }
@@ -660,11 +712,13 @@ class DynamoDbDatabase implements Database {
 
     private async update(params: UpdateCommandInput) {
         try {
-            const data = await this.ddbDocClient.send(new UpdateCommand(params));
-            console.log("Success - item updated", data);
+            const data = await this.ddbDocClient.send(
+                new UpdateCommand(params),
+            );
+            console.log('Success - item updated', data);
             return data;
         } catch (err) {
-            console.error("Error adding or updating item:", err);
+            console.error('Error adding or updating item:', err);
             throw err;
         }
     }
@@ -674,22 +728,23 @@ class DynamoDbDatabase implements Database {
             const result = await this.ddbDocClient.send(new GetCommand(params));
             return result.Item;
         } catch (err) {
-            console.error("Error getting item:", err);
+            console.error('Error getting item:', err);
             throw err;
         }
     }
 
-    private async getSessionUserId(sessionId: string): Promise<Buffer | undefined> {
+    private async getSessionUserId(
+        sessionId: string,
+    ): Promise<Buffer | undefined> {
         const sessionParams = {
             TableName: SESSIONS_TABLE_NAME,
             Key: {
-                id: sessionId
+                id: sessionId,
             },
-            ProjectionExpression: 'userId'
+            ProjectionExpression: 'userId',
         };
 
         const session = await this.get(sessionParams);
-
 
         if (session === undefined || hasSessionExpired(session as Session)) {
             return undefined;
@@ -700,10 +755,12 @@ class DynamoDbDatabase implements Database {
 
     private async delete(params: DeleteCommandInput) {
         try {
-            const result = await this.ddbDocClient.send(new DeleteCommand(params));
+            const result = await this.ddbDocClient.send(
+                new DeleteCommand(params),
+            );
             return result.Attributes;
         } catch (err) {
-            console.error("Error deleting item:", err);
+            console.error('Error deleting item:', err);
             throw err;
         }
     }
@@ -712,7 +769,7 @@ class DynamoDbDatabase implements Database {
         try {
             await this.ddbDocClient.send(new BatchWriteCommand(params));
         } catch (err) {
-            console.error("Error batch-deleting items:", err);
+            console.error('Error batch-deleting items:', err);
             throw err;
         }
     }
@@ -721,16 +778,18 @@ class DynamoDbDatabase implements Database {
         const userParams = {
             TableName: USERS_TABLE_NAME,
             Key: {
-                id: userId
+                id: userId,
             },
-            UpdateExpression: "DELETE sessions :sessionId",
+            UpdateExpression: 'DELETE sessions :sessionId',
             ExpressionAttributeValues: {
-                ":sessionId": new Set([sessionId])
-            }
-        }
+                ':sessionId': new Set([sessionId]),
+            },
+        };
 
         await this.update(userParams);
     }
 }
 
-export const database: Database = env['AWS_REGION'] ? new DynamoDbDatabase() : new InProcessDatabase();
+export const database: Database = env['AWS_REGION']
+    ? new DynamoDbDatabase()
+    : new InProcessDatabase();

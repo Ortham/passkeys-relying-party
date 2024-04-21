@@ -3,7 +3,12 @@ import assert from 'node:assert';
 import { Buffer } from 'node:buffer';
 import { getSessionId } from '../lib/session.js';
 import { User, database } from '../lib/database.js';
-import { parseRequestBody as parseCreatePasskeyRequestBody, RequestBody as CreatePasskeyRequestBody, validatePasskeyInputs, createPasskeyObject } from './createPasskey.js';
+import {
+    parseRequestBody as parseCreatePasskeyRequestBody,
+    RequestBody as CreatePasskeyRequestBody,
+    validatePasskeyInputs,
+    createPasskeyObject,
+} from './createPasskey.js';
 import { getRandomBytes } from '../lib/util.js';
 
 interface RequestBody {
@@ -27,7 +32,7 @@ function parseRequestBody(body: string): RequestBody {
         userHandle: Buffer.from(json.userHandle, 'base64'),
         username: json.username,
         displayName: json.displayName,
-        passkey
+        passkey,
     };
 }
 
@@ -38,7 +43,7 @@ function createUserObject(requestBody: RequestBody): User {
         name: requestBody.username,
         displayName: requestBody.displayName,
         passkeys: new Set(),
-        sessions: new Set()
+        sessions: new Set(),
     };
 }
 
@@ -49,7 +54,12 @@ export async function createUser(bodyString: string, sessionId: string) {
     const user = createUserObject(body);
 
     const jwk = await validatePasskeyInputs(body.passkey, sessionId);
-    const passkey = createPasskeyObject(body.passkey, user, jwk, 'Added during account creation');
+    const passkey = createPasskeyObject(
+        body.passkey,
+        user,
+        jwk,
+        'Added during account creation',
+    );
 
     // Store the user first because storing the passkey also updates the user data with the passkey's ID.
     await database.insertUser(user);
@@ -59,7 +69,10 @@ export async function createUser(bodyString: string, sessionId: string) {
     await database.updateSessionUserId(sessionId, user.id);
 }
 
-export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _context) => {
+export const lambdaHandler: Handler = async (
+    event: APIGatewayProxyEvent,
+    _context,
+) => {
     assert(event.body !== null, 'The request has no body');
 
     const sessionId = getSessionId(event.headers);
@@ -68,7 +81,7 @@ export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _conte
     await createUser(event.body, sessionId);
 
     const response = {
-        statusCode: 204
+        statusCode: 204,
     };
 
     return response;

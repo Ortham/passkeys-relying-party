@@ -4,7 +4,16 @@
 // this makes it feasible to implement parsing from scratch.
 import assert from 'node:assert';
 
-export type DecodedValue = bigint | Uint8Array | string | DecodedValue[] | Map<DecodedValue, DecodedValue> | boolean | null | undefined | number;
+export type DecodedValue =
+    | bigint
+    | Uint8Array
+    | string
+    | DecodedValue[]
+    | Map<DecodedValue, DecodedValue>
+    | boolean
+    | null
+    | undefined
+    | number;
 
 const CBOR_TYPE_UNSIGNED_INT = 0;
 const CBOR_TYPE_NEGATIVE_INT = 1;
@@ -51,7 +60,11 @@ function getDataLength(buffer: Uint8Array) {
     } else if (info === 26) {
         assert(buffer.byteLength > 4, 'Expected 4 extra bytes for data length');
         // Length in 4 bytes this time.
-        const length = (buffer[1]! << 24) | (buffer[2]! << 16) | (buffer[3]! << 8) | buffer[4]!;
+        const length =
+            (buffer[1]! << 24) |
+            (buffer[2]! << 16) |
+            (buffer[3]! << 8) |
+            buffer[4]!;
 
         start = 5n;
         end = start + BigInt(length);
@@ -60,10 +73,18 @@ function getDataLength(buffer: Uint8Array) {
         // Length in 8 bytes this time.
         // JS stores integers as 32-bit numbers, so this can't be read in one go.
         // Unfortunately this means storing the value as a bigint, which means the other branches also need to return bigints.
-        const high = (buffer[1]! << 24) | (buffer[2]! << 16) | (buffer[3]! << 8) | buffer[4]!;
-        const low = (buffer[5]! << 24) | (buffer[6]! << 16) | (buffer[7]! << 8) | buffer[8]!;
+        const high =
+            (buffer[1]! << 24) |
+            (buffer[2]! << 16) |
+            (buffer[3]! << 8) |
+            buffer[4]!;
+        const low =
+            (buffer[5]! << 24) |
+            (buffer[6]! << 16) |
+            (buffer[7]! << 8) |
+            buffer[8]!;
 
-        const length = BigInt(high) << BigInt(32) | BigInt(low);
+        const length = (BigInt(high) << BigInt(32)) | BigInt(low);
 
         start = 9n;
         end = BigInt(start) + length;
@@ -73,7 +94,7 @@ function getDataLength(buffer: Uint8Array) {
 
     return {
         start,
-        end
+        end,
     };
 }
 
@@ -81,7 +102,10 @@ function isSafeAsNumber(bigint: bigint): boolean {
     return BigInt(Number(bigint)) === bigint;
 }
 
-function decodeUnsignedInt(buffer: Uint8Array): { value: bigint | number; end: bigint; } {
+function decodeUnsignedInt(buffer: Uint8Array): {
+    value: bigint | number;
+    end: bigint;
+} {
     assert(buffer.byteLength > 0, "Can't decode unsigned int from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_UNSIGNED_INT);
 
@@ -92,11 +116,14 @@ function decodeUnsignedInt(buffer: Uint8Array): { value: bigint | number; end: b
 
     return {
         value: isSafeAsNumber(value) ? Number(value) : value,
-        end: start
+        end: start,
     };
 }
 
-function decodeNegativeInt(buffer: Uint8Array): { value: bigint | number; end: bigint; } {
+function decodeNegativeInt(buffer: Uint8Array): {
+    value: bigint | number;
+    end: bigint;
+} {
     assert(buffer.byteLength > 0, "Can't decode negative int from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_NEGATIVE_INT);
 
@@ -107,11 +134,14 @@ function decodeNegativeInt(buffer: Uint8Array): { value: bigint | number; end: b
 
     return {
         value: isSafeAsNumber(value) ? Number(value) : value,
-        end: start
+        end: start,
     };
 }
 
-function decodeByteString(buffer: Uint8Array): { value: Uint8Array; end: bigint; } {
+function decodeByteString(buffer: Uint8Array): {
+    value: Uint8Array;
+    end: bigint;
+} {
     assert(buffer.byteLength > 0, "Can't decode byte string from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_BYTE_STRING);
 
@@ -119,26 +149,29 @@ function decodeByteString(buffer: Uint8Array): { value: Uint8Array; end: bigint;
 
     return {
         value: buffer.subarray(Number(start), Number(end)),
-        end
+        end,
     };
 }
 
-function decodeTextString(buffer: Uint8Array): { value: string; end: bigint; } {
+function decodeTextString(buffer: Uint8Array): { value: string; end: bigint } {
     // First byte is the type and arg
     assert(buffer.byteLength > 0, "Can't decode text string from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_TEXT_STRING);
 
     const { start, end } = getDataLength(buffer);
 
-    buffer = buffer.subarray(Number(start), Number(end))
+    buffer = buffer.subarray(Number(start), Number(end));
 
     return {
         value: new TextDecoder().decode(buffer),
-        end
+        end,
     };
 }
 
-function decodeArray(buffer: Uint8Array): { value: DecodedValue[]; end: bigint; } {
+function decodeArray(buffer: Uint8Array): {
+    value: DecodedValue[];
+    end: bigint;
+} {
     assert(buffer.byteLength > 0, "Can't decode array from no data");
     assert(getType(buffer[0]!) === CBOR_TYPE_ARRAY);
 
@@ -148,7 +181,9 @@ function decodeArray(buffer: Uint8Array): { value: DecodedValue[]; end: bigint; 
     let items = [];
     let offset = start;
     while (itemCount > 0) {
-        const { value: item, end: itemEnd } = decodeDataItem(buffer.subarray(Number(offset)));
+        const { value: item, end: itemEnd } = decodeDataItem(
+            buffer.subarray(Number(offset)),
+        );
         offset += itemEnd;
 
         items.push(item);
@@ -157,11 +192,14 @@ function decodeArray(buffer: Uint8Array): { value: DecodedValue[]; end: bigint; 
 
     return {
         value: items,
-        end: offset
-    }
+        end: offset,
+    };
 }
 
-function decodeMap(buffer: Uint8Array): { value: Map<DecodedValue, DecodedValue>; end: bigint; } {
+function decodeMap(buffer: Uint8Array): {
+    value: Map<DecodedValue, DecodedValue>;
+    end: bigint;
+} {
     assert(buffer.byteLength > 0, "Can't decode map from no data");
     assert.strictEqual(getType(buffer[0]!), CBOR_TYPE_MAP);
 
@@ -171,10 +209,14 @@ function decodeMap(buffer: Uint8Array): { value: Map<DecodedValue, DecodedValue>
     let entries: [DecodedValue, DecodedValue][] = [];
     let offset = start;
     while (itemCount > 0) {
-        const { value: key, end: keyEnd } = decodeDataItem(buffer.subarray(Number(offset)));
+        const { value: key, end: keyEnd } = decodeDataItem(
+            buffer.subarray(Number(offset)),
+        );
         offset += keyEnd;
 
-        const { value, end: valueEnd } = decodeDataItem(buffer.subarray(Number(offset)));
+        const { value, end: valueEnd } = decodeDataItem(
+            buffer.subarray(Number(offset)),
+        );
         offset += valueEnd;
 
         entries.push([key, value]);
@@ -183,7 +225,7 @@ function decodeMap(buffer: Uint8Array): { value: Map<DecodedValue, DecodedValue>
 
     return {
         value: new Map(entries),
-        end: offset
+        end: offset,
     };
 }
 
@@ -195,8 +237,14 @@ function ldexp(float: number, exp: number) {
     return float * Math.pow(2, exp);
 }
 
-function decodeFloat(buffer: Uint8Array): { value: boolean | null | undefined | number; end: bigint; } {
-    assert(buffer.byteLength > 0, "Can't decode float or simple type from no data");
+function decodeFloat(buffer: Uint8Array): {
+    value: boolean | null | undefined | number;
+    end: bigint;
+} {
+    assert(
+        buffer.byteLength > 0,
+        "Can't decode float or simple type from no data",
+    );
     assert(getType(buffer[0]!) === CBOR_TYPE_FLOAT);
 
     const info = getTypeInfo(buffer[0]!);
@@ -208,28 +256,28 @@ function decodeFloat(buffer: Uint8Array): { value: boolean | null | undefined | 
     if (info === 20) {
         return {
             value: false,
-            end: 1n
+            end: 1n,
         };
     }
 
     if (info === 21) {
         return {
             value: true,
-            end: 1n
+            end: 1n,
         };
     }
 
     if (info === 22) {
         return {
             value: null,
-            end: 1n
+            end: 1n,
         };
     }
 
     if (info === 23) {
         return {
             value: undefined,
-            end: 1n
+            end: 1n,
         };
     }
 
@@ -258,7 +306,7 @@ function decodeFloat(buffer: Uint8Array): { value: boolean | null | undefined | 
 
         return {
             value: half & 0x8000 ? -val : val,
-            end: 3n
+            end: 3n,
         };
     }
 
@@ -266,7 +314,7 @@ function decodeFloat(buffer: Uint8Array): { value: boolean | null | undefined | 
         // big-endian 32-bit float in the following 4 bytes
         return {
             value: new DataView(buffer.buffer).getFloat32(1, false),
-            end: 5n
+            end: 5n,
         };
     }
 
@@ -274,7 +322,7 @@ function decodeFloat(buffer: Uint8Array): { value: boolean | null | undefined | 
         // big-endian 64-bit float in the following 8 bytes
         return {
             value: new DataView(buffer.buffer).getFloat64(1, false),
-            end: 9n
+            end: 9n,
         };
     }
 
@@ -283,14 +331,22 @@ function decodeFloat(buffer: Uint8Array): { value: boolean | null | undefined | 
     }
 
     if (info === 31) {
-        throw new Error('break stop code is not supported in WebAuthn CBOR data');
+        throw new Error(
+            'break stop code is not supported in WebAuthn CBOR data',
+        );
     }
 
     throw new Error('Unexpected float type info value: ' + info);
 }
 
-function decodeDataItem(buffer: Uint8Array): { value: DecodedValue; end: bigint; } {
-    assert(buffer.byteLength > 0, "Can't decode unknown data item from no data");
+function decodeDataItem(buffer: Uint8Array): {
+    value: DecodedValue;
+    end: bigint;
+} {
+    assert(
+        buffer.byteLength > 0,
+        "Can't decode unknown data item from no data",
+    );
     const type = getType(buffer[0]!);
 
     switch (type) {
@@ -331,10 +387,17 @@ export function parseCBOR(buffer: Uint8Array): DecodedValue[] {
 
 export function parseAttestationObject(attestationObject: Uint8Array) {
     const items = parseCBOR(attestationObject);
-    assert.strictEqual(items.length, 1, 'Only expected a single CBOR data item in the attestation object');
+    assert.strictEqual(
+        items.length,
+        1,
+        'Only expected a single CBOR data item in the attestation object',
+    );
 
     const decoded = items[0];
-    assert(decoded instanceof Map, 'Expected attestation object CBOR to hold a map');
+    assert(
+        decoded instanceof Map,
+        'Expected attestation object CBOR to hold a map',
+    );
 
     const fmt = decoded.get('fmt');
     assert(typeof fmt === 'string', 'Expected fmt to be a string');
@@ -343,7 +406,10 @@ export function parseAttestationObject(attestationObject: Uint8Array) {
     assert(attStmt instanceof Map, 'Expected fmt to be a map');
 
     const authData = decoded.get('authData');
-    assert(authData instanceof Uint8Array, 'Expected authData to be a Uint8Array');
+    assert(
+        authData instanceof Uint8Array,
+        'Expected authData to be a Uint8Array',
+    );
 
     return { fmt, attStmt, authData };
 }

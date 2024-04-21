@@ -30,21 +30,47 @@ export interface AuthData {
     extensions: unknown;
 }
 
-export function validateClientData(clientData: ClientData, expectedType: string, expectedChallenge: Buffer) {
-    assert.strictEqual(clientData.type, expectedType, 'The client data\'s type is not expected');
+export function validateClientData(
+    clientData: ClientData,
+    expectedType: string,
+    expectedChallenge: Buffer,
+) {
+    assert.strictEqual(
+        clientData.type,
+        expectedType,
+        "The client data's type is not expected",
+    );
 
     // For some reason assert.strictEqual(clientData.challenge, expectedChallenge.toString('base64url')) fails when run in AWS Lambda, with the expected value logged being a byte array rather than the expected base64url string, it's like there's an invalid optimisation applied.
-    assert(Buffer.from(clientData.challenge, 'base64url').equals(expectedChallenge), 'The given challenge is not expected');
+    assert(
+        Buffer.from(clientData.challenge, 'base64url').equals(
+            expectedChallenge,
+        ),
+        'The given challenge is not expected',
+    );
 
-    assert(ALLOWED_ORIGINS.includes(clientData.origin), `Origin ${clientData.origin} is not allowed`);
-    assert.strictEqual(clientData.topOrigin, undefined, 'A top origin is present');
+    assert(
+        ALLOWED_ORIGINS.includes(clientData.origin),
+        `Origin ${clientData.origin} is not allowed`,
+    );
+    assert.strictEqual(
+        clientData.topOrigin,
+        undefined,
+        'A top origin is present',
+    );
 }
 
 function validateFlags(flags: number) {
-    assert(isBitFlagSet(flags, FLAG_USER_PRESENT), 'User Present bit is not set');
+    assert(
+        isBitFlagSet(flags, FLAG_USER_PRESENT),
+        'User Present bit is not set',
+    );
 
     if (!isBitFlagSet(flags, FLAG_BACKUP_ELIGIBILITY)) {
-        assert(!isBitFlagSet(flags, FLAG_BACKUP_STATE), 'Backup State bit is set but Backup Eligible bit is not set');
+        assert(
+            !isBitFlagSet(flags, FLAG_BACKUP_STATE),
+            'Backup State bit is set but Backup Eligible bit is not set',
+        );
     }
 }
 
@@ -57,7 +83,10 @@ export function parseAuthData(authData: Buffer): AuthData {
 
     validateFlags(flags);
 
-    const hasCredentialData = isBitFlagSet(flags, FLAG_ATTESTED_CREDENTIAL_DATA_INCLUDED);
+    const hasCredentialData = isBitFlagSet(
+        flags,
+        FLAG_ATTESTED_CREDENTIAL_DATA_INCLUDED,
+    );
     const hasExtensionData = isBitFlagSet(flags, FLAG_EXTENSION_DATA_INCLUDED);
 
     let aaguid: Buffer | undefined;
@@ -76,13 +105,21 @@ export function parseAuthData(authData: Buffer): AuthData {
         const remaining = parseCBOR(authData.subarray(55 + credentialIdLength));
 
         if (hasExtensionData) {
-            assert.strictEqual(remaining.length, 2, 'The AuthData structure has an unexpected number of fields');
+            assert.strictEqual(
+                remaining.length,
+                2,
+                'The AuthData structure has an unexpected number of fields',
+            );
 
             assert(remaining[0] instanceof Map);
             credentialPublicKey = mapToCoseKey(remaining[0]);
             extensions = remaining[1];
         } else {
-            assert.strictEqual(remaining.length, 1, 'The AuthData structure has an unexpected number of fields');
+            assert.strictEqual(
+                remaining.length,
+                1,
+                'The AuthData structure has an unexpected number of fields',
+            );
 
             assert(remaining[0] instanceof Map);
             credentialPublicKey = mapToCoseKey(remaining[0]);
@@ -90,25 +127,64 @@ export function parseAuthData(authData: Buffer): AuthData {
     } else if (hasExtensionData) {
         const remaining = parseCBOR(authData.subarray(37));
 
-        assert.strictEqual(remaining.length, 1, 'The AuthData structure has an unexpected number of fields');
+        assert.strictEqual(
+            remaining.length,
+            1,
+            'The AuthData structure has an unexpected number of fields',
+        );
 
         extensions = remaining[0];
     } else {
-        assert.strictEqual(authData.length, 37, 'The AuthData buffer length is unexpected');
+        assert.strictEqual(
+            authData.length,
+            37,
+            'The AuthData buffer length is unexpected',
+        );
     }
 
-    return { rpIdHash, flags, signCount, aaguid, credentialIdLength, credentialId, credentialPublicKey, extensions };
+    return {
+        rpIdHash,
+        flags,
+        signCount,
+        aaguid,
+        credentialIdLength,
+        credentialId,
+        credentialPublicKey,
+        extensions,
+    };
 }
 
-export function validateAuthData(authData: AuthData, expectedRpIdHash: ArrayBuffer, requireCredentialData: boolean) {
-    assert(authData.rpIdHash.equals(Buffer.from(expectedRpIdHash)), 'The given RP ID hash is unexpected');
+export function validateAuthData(
+    authData: AuthData,
+    expectedRpIdHash: ArrayBuffer,
+    requireCredentialData: boolean,
+) {
+    assert(
+        authData.rpIdHash.equals(Buffer.from(expectedRpIdHash)),
+        'The given RP ID hash is unexpected',
+    );
 
-    assert(isBitFlagSet(authData.flags, FLAG_USER_VERIFIED), 'User Verified bit is not set');
+    assert(
+        isBitFlagSet(authData.flags, FLAG_USER_VERIFIED),
+        'User Verified bit is not set',
+    );
 
     if (requireCredentialData) {
-        assert(isBitFlagSet(authData.flags, FLAG_ATTESTED_CREDENTIAL_DATA_INCLUDED), 'No attested credential data included');
+        assert(
+            isBitFlagSet(
+                authData.flags,
+                FLAG_ATTESTED_CREDENTIAL_DATA_INCLUDED,
+            ),
+            'No attested credential data included',
+        );
 
-        assert(authData.credentialIdLength !== undefined, 'The credential ID is missing in the given AuthData');
-        assert(authData.credentialIdLength <= 1023, 'Credential ID is greater than 1023 bytes long');
+        assert(
+            authData.credentialIdLength !== undefined,
+            'The credential ID is missing in the given AuthData',
+        );
+        assert(
+            authData.credentialIdLength <= 1023,
+            'Credential ID is greater than 1023 bytes long',
+        );
     }
 }

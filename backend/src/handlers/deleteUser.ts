@@ -9,7 +9,10 @@ export async function deleteUser(sessionId: string) {
     return logout(sessionId);
 }
 
-export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _context) => {
+export const lambdaHandler: Handler = async (
+    event: APIGatewayProxyEvent,
+    _context,
+) => {
     const sessionId = getSessionId(event.headers);
     assert(sessionId !== undefined, 'The request has no session ID');
 
@@ -17,7 +20,7 @@ export const lambdaHandler: Handler = async (event: APIGatewayProxyEvent, _conte
 
     const response = {
         statusCode: 204,
-        headers: responseHeaders
+        headers: responseHeaders,
     };
 
     return response;
