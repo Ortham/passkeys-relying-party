@@ -210,9 +210,7 @@ function parseUser(value: unknown): User {
         user.sessions === undefined || user.sessions instanceof Set,
         'sessions is defined but not a Set',
     );
-    if (user.sessions === undefined) {
-        user.sessions = new Set();
-    }
+    user.sessions ??= new Set();
 
     return user;
 }
